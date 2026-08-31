@@ -29,6 +29,10 @@
   <div id="reader"></div>
   <div class="status" id="status">กำลังเปิดกล้อง...</div>
 
+  <!-- 🖉 เพิ่มแล้ว: ถ่ายรูปแทน เหมาะกับบาร์โค้ดชิ้นเล็กที่กล้องสดโฟกัสไม่ชัด -->
+  <button class="btn ghost" id="photoBtn">📸 ถ่ายรูปแทน (บาร์โค้ดชิ้นเล็ก/สแกนสดไม่ชัด)</button>
+  <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+
   <button class="btn ghost" id="backBtn">← กลับไปฟอร์มโดยไม่สแกน</button>
   <p class="hint" id="noReturnHint" style="display:none">
     ไม่พบลิงก์กลับ — กรุณาเปิดหน้านี้ผ่านปุ่ม "สแกนบาร์โค้ด" ในฟอร์มรับยาเท่านั้น อย่าเปิดตรงๆ
@@ -41,15 +45,21 @@
   var returnUrl = params.get('return');
   var statusEl = document.getElementById('status');
   var backBtn = document.getElementById('backBtn');
+  var photoBtn = document.getElementById('photoBtn');
+  var photoInput = document.getElementById('photoInput');
   var done = false;
+  var html5QrCode = null;   // 🖉 แก้แล้ว: ยกมาไว้นอกฟังก์ชัน ให้ปุ่มถ่ายรูปเรียกใช้ตัวเดียวกันได้
 
   if(!returnUrl){
     statusEl.textContent = 'ไม่พบปลายทางที่ต้องกลับไป';
     statusEl.className = 'status err';
     document.getElementById('noReturnHint').style.display = 'block';
     backBtn.style.display = 'none';
+    photoBtn.style.display = 'none';
   } else {
     backBtn.onclick = function(){ window.top.location.href = returnUrl; };
+    photoBtn.onclick = function(){ photoInput.click(); };
+    photoInput.onchange = onPhotoSelected;
     startScanning();
   }
 
@@ -65,7 +75,7 @@
   }
 
   function startScanning(){
-    var html5QrCode = new Html5Qrcode('reader');
+    html5QrCode = new Html5Qrcode('reader');
     var config = {
       fps: 10,
       qrbox: { width: 260, height: 140 },
@@ -84,9 +94,34 @@
       function(){ /* เฟรมอ่านไม่ออก เงียบไว้ ไม่ต้องแจ้ง */ }
     ).then(function(){
       statusEl.textContent = 'พร้อมสแกน — ส่องกล้องไปที่บาร์โค้ด';
+      statusEl.className = 'status';
     }).catch(function(err){
       statusEl.textContent = 'เปิดกล้องไม่สำเร็จ: ' + err;
       statusEl.className = 'status err';
+    });
+  }
+
+  // 🖉 เพิ่มแล้ว: อ่านบาร์โค้ดจากรูปที่ถ่าย (แม่นกว่ากล้องสดตอนบาร์โค้ดเล็ก/แสงน้อย)
+  function onPhotoSelected(e){
+    var file = e.target.files && e.target.files[0];
+    photoInput.value = ''; // เคลียร์ไว้ ถ่ายรูปเดิมซ้ำจะ trigger ใหม่ได้อีก
+    if(!file) return;
+
+    statusEl.textContent = 'กำลังอ่านบาร์โค้ดจากรูปที่ถ่าย...';
+    statusEl.className = 'status';
+
+    var stopFirst;
+    try{ stopFirst = html5QrCode.stop().catch(function(){}); }
+    catch(err){ stopFirst = Promise.resolve(); }
+
+    stopFirst.then(function(){
+      return html5QrCode.scanFile(file, false);
+    }).then(function(decodedText){
+      goBackWithCode(decodedText);
+    }).catch(function(err){
+      statusEl.textContent = 'อ่านบาร์โค้ดจากรูปไม่สำเร็จ — ลองถ่ายใหม่ให้ใกล้และชัดกว่านี้ หรือให้แสงเพียงพอ';
+      statusEl.className = 'status err';
+      startScanning(); // เปิดกล้องสดกลับมาให้ลองใหม่ต่อได้ทันที
     });
   }
 </script>
