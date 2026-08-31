@@ -49,7 +49,7 @@
     document.getElementById('noReturnHint').style.display = 'block';
     backBtn.style.display = 'none';
   } else {
-    backBtn.onclick = function(){ window.location.href = returnUrl; };
+    backBtn.onclick = function(){ window.top.location.href = returnUrl; };
     startScanning();
   }
 
@@ -60,7 +60,7 @@
     if(navigator.vibrate) navigator.vibrate(80);
     var sep = returnUrl.indexOf('?') === -1 ? '?' : '&';
     setTimeout(function(){
-      window.location.href = returnUrl + sep + 'scanned=' + encodeURIComponent(code);
+      window.top.location.href = returnUrl + sep + 'scanned=' + encodeURIComponent(code);
     }, 350);
   }
 
