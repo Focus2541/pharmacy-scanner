@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>สแกนบาร์โค้ดยา</title>
+<style>
+  :root{ --blue:#1A73E8; --ink:#202124; --sub:#5F6368; --line:#DADCE0; --bg:#F8F9FA; --red:#C5221F; --green:#137333; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Sarabun',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--ink);}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px;min-height:100vh;}
+  h1{font-size:20px;margin:8px 0 4px;}
+  .sub{color:var(--sub);font-size:13px;margin-bottom:16px;}
+  #reader{width:100%;border-radius:12px;overflow:hidden;background:#000;min-height:260px;}
+  .status{margin-top:14px;padding:12px;border-radius:10px;background:#fff;border:1px solid var(--line);font-size:14px;text-align:center;}
+  .status.ok{border-color:var(--green);color:var(--green);background:#E6F4EA;}
+  .status.err{border-color:var(--red);color:var(--red);background:#FCE8E6;}
+  .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;font-size:16px;font-weight:700;margin-top:14px;cursor:pointer;}
+  .btn.primary{background:var(--blue);color:#fff;}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .hint{font-size:12px;color:var(--red);text-align:center;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📷 สแกนบาร์โค้ดยา</h1>
+  <p class="sub">ส่องกล้องไปที่บาร์โค้ดบนกล่องยา — สแกนเจอแล้วจะพากลับไปที่ฟอร์มรับยาให้อัตโนมัติ</p>
+
+  <div id="reader"></div>
+  <div class="status" id="status">กำลังเปิดกล้อง...</div>
+
+  <button class="btn ghost" id="backBtn">← กลับไปฟอร์มโดยไม่สแกน</button>
+  <p class="hint" id="noReturnHint" style="display:none">
+    ไม่พบลิงก์กลับ — กรุณาเปิดหน้านี้ผ่านปุ่ม "สแกนบาร์โค้ด" ในฟอร์มรับยาเท่านั้น อย่าเปิดตรงๆ
+  </p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  var params = new URLSearchParams(window.location.search);
+  var returnUrl = params.get('return');
+  var statusEl = document.getElementById('status');
+  var backBtn = document.getElementById('backBtn');
+  var done = false;
+
+  if(!returnUrl){
+    statusEl.textContent = 'ไม่พบปลายทางที่ต้องกลับไป';
+    statusEl.className = 'status err';
+    document.getElementById('noReturnHint').style.display = 'block';
+    backBtn.style.display = 'none';
+  } else {
+    backBtn.onclick = function(){ window.location.href = returnUrl; };
+    startScanning();
+  }
+
+  function goBackWithCode(code){
+    if(done) return; done = true;
+    statusEl.textContent = '✓ พบบาร์โค้ด ' + code + ' — กำลังกลับไปฟอร์ม...';
+    statusEl.className = 'status ok';
+    if(navigator.vibrate) navigator.vibrate(80);
+    var sep = returnUrl.indexOf('?') === -1 ? '?' : '&';
+    setTimeout(function(){
+      window.location.href = returnUrl + sep + 'scanned=' + encodeURIComponent(code);
+    }, 350);
+  }
+
+  function startScanning(){
+    var html5QrCode = new Html5Qrcode('reader');
+    var config = {
+      fps: 10,
+      qrbox: { width: 260, height: 140 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.UPC_A
+      ]
+    };
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      config,
+      function(decodedText){ goBackWithCode(decodedText); },
+      function(){ /* เฟรมอ่านไม่ออก เงียบไว้ ไม่ต้องแจ้ง */ }
+    ).then(function(){
+      statusEl.textContent = 'พร้อมสแกน — ส่องกล้องไปที่บาร์โค้ด';
+    }).catch(function(err){
+      statusEl.textContent = 'เปิดกล้องไม่สำเร็จ: ' + err;
+      statusEl.className = 'status err';
+    });
+  }
+</script>
+</body>
+</html>
