@@ -27,7 +27,9 @@
   <p class="sub">ส่องกล้องไปที่บาร์โค้ดบนกล่องยา — สแกนเจอแล้วจะพากลับไปที่ฟอร์มรับยาให้อัตโนมัติ</p>
 
   <div id="reader"></div>
-  <div class="status" id="status">กำลังเปิดกล้อง...</div>
+  <div class="status" id="status">แตะปุ่มด้านล่างเพื่อเริ่มกล้อง</div>
+  <!-- 🖉 แก้แล้ว: iOS (Safari) ไม่ยอมเปิดกล้องอัตโนมัติตอนโหลดหน้า ต้องรอให้ผู้ใช้แตะเองก่อนเสมอ -->
+  <button class="btn primary" id="startBtn">📷 แตะเพื่อเริ่มกล้อง</button>
 
   <!-- 🖉 เพิ่มแล้ว: ถ่ายรูปแทน เหมาะกับบาร์โค้ดชิ้นเล็กที่กล้องสดโฟกัสไม่ชัด -->
   <button class="btn ghost" id="photoBtn">📸 ถ่ายรูปแทน (บาร์โค้ดชิ้นเล็ก/สแกนสดไม่ชัด)</button>
@@ -47,6 +49,7 @@
   var backBtn = document.getElementById('backBtn');
   var photoBtn = document.getElementById('photoBtn');
   var photoInput = document.getElementById('photoInput');
+  var startBtn = document.getElementById('startBtn');
   var done = false;
   var html5QrCode = null;   // 🖉 แก้แล้ว: ยกมาไว้นอกฟังก์ชัน ให้ปุ่มถ่ายรูปเรียกใช้ตัวเดียวกันได้
 
@@ -56,11 +59,17 @@
     document.getElementById('noReturnHint').style.display = 'block';
     backBtn.style.display = 'none';
     photoBtn.style.display = 'none';
+    startBtn.style.display = 'none';
   } else {
     backBtn.onclick = function(){ window.top.location.href = returnUrl; };
     photoBtn.onclick = function(){ photoInput.click(); };
     photoInput.onchange = onPhotoSelected;
-    startScanning();
+    // 🖉 แก้แล้ว: ต้องรอให้ผู้ใช้แตะปุ่มนี้เองก่อน ถึงจะเรียก startScanning() ได้
+    // (iOS Safari ปฏิเสธ getUserMedia เงียบๆ ถ้าไม่ได้เกิดจากการแตะหน้าจอโดยตรง)
+    startBtn.onclick = function(){
+      startBtn.style.display = 'none';
+      startScanning();
+    };
   }
 
   function goBackWithCode(code){
@@ -121,7 +130,10 @@
     }).catch(function(err){
       statusEl.textContent = 'อ่านบาร์โค้ดจากรูปไม่สำเร็จ — ลองถ่ายใหม่ให้ใกล้และชัดกว่านี้ หรือให้แสงเพียงพอ';
       statusEl.className = 'status err';
-      startScanning(); // เปิดกล้องสดกลับมาให้ลองใหม่ต่อได้ทันที
+      // 🖉 แก้แล้ว: ให้แตะปุ่มเองอีกครั้งเพื่อสแกนต่อ (ไม่เรียก startScanning() ตรงๆ เพราะ iOS
+      // ต้องการให้เปิดกล้องมาจากการแตะหน้าจอเท่านั้น ไม่ใช่จาก promise callback)
+      startBtn.textContent = '📷 แตะเพื่อสแกนต่อ';
+      startBtn.style.display = 'block';
     });
   }
 </script>
