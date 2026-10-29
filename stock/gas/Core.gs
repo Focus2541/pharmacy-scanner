@@ -58,6 +58,44 @@ var Core = (function () {
     return { ok: true, move: mv, code: it.code, bal: after };
   }
 
+  /* ตัดจำหน่าย (หมดอายุ / ชำรุด / อื่นๆ): ตัดจากล็อตวันหมดอายุที่เลือกก่อน ที่เหลือตัดแบบหมดอายุก่อนออกก่อน
+     แยกประเภทจาก "หยิบ" เพื่อไม่ให้ไปนับเป็นยอดใช้ */
+  function dispose(db, b, now) {
+    const it = item(db, b.c), q = int(b.q);
+    if (!(q >= 1)) throw new Error('จำนวนต้องเป็น 1 ขึ้นไป');
+    const before = bal(db, it.code);
+    if (q > before) throw new Error('ยอดในระบบมี ' + before + ' ตัดได้ไม่เกินนี้ ถ้าของจริงไม่ตรงให้นับใหม่ก่อน');
+    const exp = String(b.exp || '');
+    let rest = q; const from = [];
+    const ls = lotsOf(db, it.code).filter(l => l.left > 0).sort(byExpAsc);
+    const order = exp ? ls.filter(l => l.exp === exp).concat(ls.filter(l => l.exp !== exp)) : ls;
+    order.forEach(l => {
+      if (!rest) return;
+      const m = Math.min(l.left, rest);
+      l.left -= m; rest -= m; touch(db, l); from.push([l.id, m]);
+    });
+    const after = bal(db, it.code);
+    const reason = String(b.reason || 'หมดอายุ');
+    const mv = addMove(db, { type: 'ตัดจำหน่าย', code: it.code, name: it.name, qty: q, before, after, exp, by: b.by || '', dev: b.dev || '',
+      note: reason + (b.note ? ' · ' + b.note : ''), from: JSON.stringify(from) }, now);
+    return { ok: true, move: mv, code: it.code, bal: after };
+  }
+
+  /* ยอดใช้ (หยิบที่ไม่ถูกยกเลิก) ต่อรหัส ในช่วง days วันล่าสุด  rows = [[time, type, code, qty, note], ...] */
+  function usage(rows, days, now) {
+    const since = now.getTime() - days * 864e5, out = {};
+    let first = null;
+    rows.forEach(r => {
+      const t = new Date(r[0]).getTime();
+      if (!isFinite(t)) return;
+      if (first === null || t < first) first = t;
+      if (t < since || r[1] !== 'หยิบ' || /ยกเลิกแล้ว/.test(String(r[4] || ''))) return;
+      out[r[2]] = (out[r[2]] || 0) + (Number(r[3]) || 0);
+    });
+    const span = first === null ? 0 : Math.min(days, Math.max(1, (now.getTime() - Math.max(first, since)) / 864e5));
+    return { days: Math.round(span), use: out };
+  }
+
   function receive(db, b, now) {
     const it = item(db, b.c), q = int(b.q);
     if (!(q >= 1)) throw new Error('จำนวนต้องเป็น 1 ขึ้นไป');
@@ -133,7 +171,7 @@ var Core = (function () {
     return { facility: db.settings.FACILITY || '', today, items, recent };
   }
 
-  return { take, receive, count, undo, snapshot, bal };
+  return { take, receive, count, undo, dispose, usage, snapshot, bal };
 })();
 
 if (typeof module !== 'undefined') module.exports = Core;

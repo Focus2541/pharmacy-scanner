@@ -90,6 +90,7 @@ function doGet(e) {
   try {
     if (p.a === 'all') return json(getAll());
     if (p.a === 'hubexp') return json({ ok: true, exp: hubExpiry(p.n || '') });
+    if (p.a === 'usage') return json(getUsage(Number(p.days) || 90));
     return json({ ok: true, msg: 'stock api' });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
@@ -108,6 +109,7 @@ function doPost(e) {
     else if (b.a === 'receive') { checkPin(db, b.pin); res = Core.receive(db, b, new Date()); }
     else if (b.a === 'count') { checkPin(db, b.pin); res = Core.count(db, b, new Date()); }
     else if (b.a === 'undo') res = Core.undo(db, b, new Date());
+    else if (b.a === 'dispose') { checkPin(db, b.pin); res = Core.dispose(db, b, new Date()); }
     else if (b.a === 'pin') { checkPin(db, b.pin); res = { ok: true }; }
     else return json({ ok: false, error: 'ไม่รู้จักคำสั่ง' });
     saveDb(db);
@@ -126,6 +128,13 @@ function json(o) {
 
 function checkPin(db, pin) {
   if (String(pin || '') !== String(db.settings.PIN || DEFAULTS.PIN)) throw new Error('รหัสผู้ดูแลไม่ถูกต้อง');
+}
+
+function getUsage(days) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.moves);
+  const n = sh.getLastRow() - 1;
+  const rows = n > 0 ? sh.getRange(2, 2, n, 11).getValues().map(r => [r[0] instanceof Date ? r[0].toISOString() : r[0], String(r[1]), String(r[2]), r[4], String(r[10])]) : [];
+  return Object.assign({ ok: true }, Core.usage(rows, days, new Date()));
 }
 
 function getAll() {

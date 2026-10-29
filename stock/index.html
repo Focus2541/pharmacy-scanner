@@ -155,7 +155,12 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
     <div class="sub" id="cLast"></div>
 
     <div class="admin-box" id="adminBox" hidden>
-      <div class="seg" id="seg"><button data-m="receive" aria-pressed="true">รับเข้าจากบวกหมื้อ</button><button data-m="count" aria-pressed="false">นับจริง</button></div>
+      <div class="seg" id="seg"><button data-m="receive" aria-pressed="true">รับเข้าจากบวกหมื้อ</button><button data-m="count" aria-pressed="false">นับจริง</button><button data-m="dispose" aria-pressed="false">ตัดหมดอายุ/ชำรุด</button></div>
+      <div id="dispBox" class="takebox" hidden>
+        <div class="field"><label>เหตุผล</label><div class="seg" id="reason"><button data-r="หมดอายุ" aria-pressed="true">หมดอายุ</button><button data-r="ชำรุด" aria-pressed="false">ชำรุด/เสีย</button><button data-r="อื่นๆ" aria-pressed="false">อื่นๆ</button></div></div>
+        <div class="field"><label for="dLot">ตัดจากล็อตวันหมดอายุ</label><select id="dLot" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:1rem"></select></div>
+        <p class="note">ยาที่ตัดจำหน่ายจะไม่ถูกนับเป็นยอดใช้ และขึ้นในประวัติแยกไว้ทำรายงาน</p>
+      </div>
       <div id="recvBox" class="takebox">
         <div class="field"><label for="rExp">วันหมดอายุ (ดึงจากคลังบวกหมื้อ แก้ได้)</label><input type="date" id="rExp"></div>
         <p class="note" id="rExpNote"></p>
@@ -263,7 +268,7 @@ function renderTabs(){
   const c=counts();
   const T=[['all','ทั้งหมด',c.all],['exp','ใกล้หมดอายุ',c.exp],['low','ใกล้หมด/หมด',c.low],['hist','ใครหยิบอะไร',null]];
   if(c.neg)T.splice(1,0,['neg','ต้องนับใหม่',c.neg]);
-  if(pin)T.push(['walk','เดินนับตามชั้น',null]);
+  if(pin)T.push(['walk','เดินนับตามชั้น',null],['req','ใบเบิก',null]);
   $('tabs').innerHTML=T.map(([k,l,n])=>`<button data-t="${k}" aria-pressed="${tab===k&&!query}">${l}${n!==null?` <span class="n ${k==='exp'||k==='neg'?'hot':''}">${n}</span>`:''}</button>`).join('');
 }
 function rowHTML(it){
@@ -299,7 +304,7 @@ function renderView(){
   v.innerHTML=head+`<div class="list">${list.slice(0,LIM).map(rowHTML).join('')||`<div class="more">${query?'ไม่พบยา ลองพิมพ์สั้นลง':'ไม่มีรายการ'}</div>`}${list.length>LIM?`<div class="more">แสดง ${LIM} จาก ${list.length} พิมพ์ค้นหาเพื่อหาตัวที่เหลือ</div>`:''}</div>`;
 }
 $('view').addEventListener('click',e=>{const r=e.target.closest('.row[data-c]');if(r)openCard(r.dataset.c)});
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tab=b.dataset.t;query='';$('q').value='';walk=null;renderTabs();renderView();refresh()});
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.t==='req'){location.href='requisition.html';return}tab=b.dataset.t;query='';$('q').value='';walk=null;renderTabs();renderView();refresh()});
 $('q').addEventListener('input',e=>{query=e.target.value.trim();renderTabs();renderView()});
 
 /* ---------- walk count (admin) ---------- */
@@ -377,7 +382,10 @@ $('undoBtn').onclick=async()=>{
 };
 
 /* ---------- admin: receive / count ---------- */
-function setMode(m){mode=m;[...$('seg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));$('recvBox').hidden=m!=='receive';expr='';showExpr();
+let reason='หมดอายุ';
+$('reason').onclick=e=>{const b=e.target.closest('button');if(!b)return;reason=b.dataset.r;[...$('reason').children].forEach(x=>x.setAttribute('aria-pressed',x===b))};
+function fillLots(){const it=cur&&find(cur.c);if(!it)return;const L=mergedLots(it);$('dLot').innerHTML=L.length?L.map(([e,q])=>`<option value="${e}">หมดอายุ ${thDate(e)} · มี ${fmt(q)} ${esc(unitOf(it))}${e&&days(e)<0?' (หมดอายุแล้ว)':''}</option>`).join(''):'<option value="">ไม่มียาในระบบ</option>';const ex=L.find(([e])=>e&&days(e)<0);if(ex)$('dLot').value=ex[0]}
+function setMode(m){mode=m;[...$('seg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));$('recvBox').hidden=m!=='receive';$('dispBox').hidden=m!=='dispose';if(m==='dispose')fillLots();expr='';showExpr();
   if(m==='receive'&&cur){const it=find(cur.c);if(it)loadHubExp(it)}}
 $('seg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
 async function loadHubExp(it){
@@ -387,7 +395,7 @@ async function loadHubExp(it){
   catch(e){$('rExpNote').textContent='ดึงวันหมดอายุไม่ได้ ให้ดูจากกล่องแล้วใส่เอง'}
 }
 function evalExpr(s){if(!s)return 0;let t=0;for(const term of s.split('+')){if(term==='')continue;t+=term.split('×').reduce((a,b)=>a*(b===''?1:Number(b)),1)}return Math.round(t)}
-function showExpr(){$('ex').textContent=/[+×]/.test(expr)?expr.replace(/×/g,' × ').replace(/\+/g,' + '):(mode==='count'?'นับได้จริง':'จำนวนที่รับ');$('res').textContent=fmt(evalExpr(expr))}
+function showExpr(){$('ex').textContent=/[+×]/.test(expr)?expr.replace(/×/g,' × ').replace(/\+/g,' + '):(mode==='count'?'นับได้จริง':mode==='dispose'?'จำนวนที่ตัดทิ้ง':'จำนวนที่รับ');$('res').textContent=fmt(evalExpr(expr))}
 $('pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.k;
   if(!k){if(expr.replace(/.*[+×]/,'').length<6)expr+=b.textContent}
   else if(k==='b')expr=expr.slice(0,-1);else if(k==='c')expr='';
@@ -395,12 +403,13 @@ $('pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   else if(k==='s'){adminSave();return}
   showExpr()});
 async function adminSave(){
-  if(!expr){toast(mode==='count'?'ใส่จำนวนที่นับได้ (ไม่มีของให้กด 0)':'ใส่จำนวนที่รับ');return}
+  if(!expr){toast(mode==='count'?'ใส่จำนวนที่นับได้ (ไม่มีของให้กด 0)':mode==='dispose'?'ใส่จำนวนที่ตัดทิ้ง':'ใส่จำนวนที่รับ');return}
   const it=find(cur.c),q=evalExpr(expr);
-  const body=mode==='receive'?{a:'receive',c:it.c,q,exp:$('rExp').value,by:me,dev,pin}:{a:'count',c:it.c,q,by:me,dev,pin};
+  const body=mode==='receive'?{a:'receive',c:it.c,q,exp:$('rExp').value,by:me,dev,pin}:mode==='dispose'?{a:'dispose',c:it.c,q,exp:$('dLot').value,reason,by:me,dev,pin}:{a:'count',c:it.c,q,by:me,dev,pin};
   try{
     const j=await post(body);apply(j.state);expr='';showExpr();
     if(mode==='receive')toast(`รับเข้า ${fmt(q)} ${unitOf(it)} · เหลือ ${fmt(j.bal)}`);
+    else if(mode==='dispose'){toast(`ตัด${reason} ${fmt(q)} ${unitOf(it)} · เหลือ ${fmt(j.bal)}`);fillLots()}
     else toast(j.diff===0?`ตรงกับระบบ (${fmt(q)})`:`${j.diff>0?'เกิน':'ขาด'} ${fmt(Math.abs(j.diff))} ${unitOf(it)} · ปรับยอดเป็น ${fmt(q)} แล้ว`);
     if(cur.walk){const L=walkList();walk=(walk+1)%L.length;LS.set('st.walk',walk);openCard(L[walk].c,{mode:'count',walk:true})}
   }catch(e){if(/รหัสผู้ดูแล/.test(e.message)){pin='';LS.set('st.pin','');renderAll()}toast(e.message)}
