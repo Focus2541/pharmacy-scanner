@@ -137,8 +137,10 @@ function json(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/* PIN อ่านจาก "พร็อพเพอร์ตี้ของสคริปต์" ก่อน (คนเปิดชีตมองไม่เห็น) ถ้าไม่มีจึงใช้ค่าในแท็บตั้งค่า */
 function checkPin(db, pin) {
-  if (String(pin || '') !== String(db.settings.PIN || DEFAULTS.PIN)) throw new Error('รหัสผู้ดูแลไม่ถูกต้อง');
+  const real = String(PropertiesService.getScriptProperties().getProperty('PIN') || db.settings.PIN || DEFAULTS.PIN).trim();
+  if (String(pin || '').trim() !== real) throw new Error('รหัสผู้ดูแลไม่ถูกต้อง');
 }
 
 function getUsage(days) {
