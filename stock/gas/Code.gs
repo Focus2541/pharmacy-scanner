@@ -3,14 +3,23 @@
  * ใช้คู่กับหน้าเว็บ https://focus2541.github.io/pharmacy-scanner/stock/
  *
  * แท็บในไฟล์นี้
- *   ตั้งค่า     ชื่อหน่วยบริการ, PIN ผู้ดูแลสต๊อก, รหัสไฟล์คลังบวกหมื้อ
  *   รายการยา   รหัส | ชื่อยา | ชื่อไทย | หน่วยนับ | ชั้น | จุดสั่งซื้อ | ใช้งาน
  *   ล็อต        แต่ละครั้งที่รับเข้า พร้อมวันหมดอายุและคงเหลือ (ตัดแบบหมดอายุก่อนออกก่อน)
  *   ประวัติ     ทุกการหยิบ / รับเข้า / นับ / ยกเลิก
  *   สรุปคงเหลือ สูตรรวมยอดต่อยา (เปิดดูในชีตได้)
+ *   อุปกรณ์     เครื่องที่ขอใช้งาน / อนุมัติแล้ว
+ *
+ * ค่าตั้งทั้งหมดอยู่ใน "พร็อพเพอร์ตี้ของสคริปต์" (⚙️ การตั้งค่าโปรเจกต์) ซึ่งคนที่เปิดชีตมองไม่เห็น
+ *   FACILITY      ชื่อหน่วยบริการที่แสดงในหน้าเว็บและอีเมล
+ *   HUB_ID        รหัสไฟล์ระบบคลังยาบวกหมื้อ ใช้ดึงวันหมดอายุ
+ *   PIN           รหัสผู้ดูแลสต๊อก ใช้ตอนรับเข้า นับ และตัดหมดอายุ
+ *   ADMIN_EMAIL   อีเมลที่รับคำขอใช้งานเครื่องใหม่
+ *   ADMIN_KEY     รหัสลับสำหรับลิงก์อนุมัติ (สุ่มให้อัตโนมัติ)
+ *   ALERT_EMAILS  อีเมลเจ้าหน้าที่ที่รับแจ้งเตือนรายวัน คั่นด้วยจุลภาค
+ *   LINE_TOKEN, LINE_TO  (ไม่บังคับ) แจ้งเตือนทางไลน์
  */
 
-const SHEET = { settings: 'ตั้งค่า', items: 'รายการยา', lots: 'ล็อต', moves: 'ประวัติ', summary: 'สรุปคงเหลือ' };
+const SHEET = { oldSettings: 'ตั้งค่า', items: 'รายการยา', lots: 'ล็อต', moves: 'ประวัติ', summary: 'สรุปคงเหลือ' };
 const DEFAULTS = {
   FACILITY: 'รพ.สต.บ้านเป้า',
   PIN: '1234',
@@ -33,21 +42,8 @@ function setup() {
     }
     return sh;
   };
-  const st = mk(SHEET.settings, ['key', 'value', 'คำอธิบาย']);
-  if (st.getLastRow() === 1) {
-    st.getRange(2, 1, 5, 3).setValues([
-      ['FACILITY', DEFAULTS.FACILITY, 'ชื่อหน่วยบริการที่แสดงในหน้าเว็บ'],
-      ['PIN', DEFAULTS.PIN, 'รหัสผู้ดูแลสต๊อก ใช้ตอนรับเข้าและนับ (เปลี่ยนได้)'],
-      ['HUB_ID', DEFAULTS.HUB_ID, 'รหัสไฟล์ระบบคลังยาบวกหมื้อ ใช้ดึงวันหมดอายุ'],
-      ['LINE_TOKEN', '', '(ไม่บังคับ) Channel access token ของ LINE OA สำหรับแจ้งเตือนรายวัน'],
-      ['LINE_TO', '', '(ไม่บังคับ) รหัสกลุ่มไลน์ของหน่วยบริการที่จะรับแจ้งเตือน'],
-    ]);
-    st.getRange('B:B').setNumberFormat('@');
-    st.getRange('B3').setValue(DEFAULTS.PIN);
-  }
   const it = mk(SHEET.items, ITEM_HEADER);
   if (it.getLastRow() === 1) writeItems_(it);
-  try { accessSettings_(); devSheet_(); } catch (_) {}
   mk(SHEET.lots, ['lot_id', 'รหัส', 'ชื่อยา', 'วันหมดอายุ', 'รับเข้า', 'คงเหลือ', 'วันที่รับ']);
   mk(SHEET.moves, ['move_id', 'เวลา', 'ประเภท', 'รหัส', 'ชื่อยา', 'จำนวน', 'ก่อน', 'หลัง', 'วันหมดอายุ', 'ผู้ทำ', 'เครื่อง', 'หมายเหตุ', 'ตัดจากล็อต']);
   const sm = mk(SHEET.summary, ['รหัส', 'ชื่อยา', 'คงเหลือ', 'หมดอายุเร็วสุด']);
@@ -61,7 +57,9 @@ function setup() {
   ss.getSheetByName(SHEET.lots).getRange('G:G').setNumberFormat('dd/mm/yyyy');
   const s1 = ss.getSheetByName('Sheet1') || ss.getSheetByName('ชีต1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
-  SpreadsheetApp.getUi && Logger.log('ติดตั้งเสร็จ');
+  moveSettingsToProperties();
+  try { devSheet_(); } catch (_) {}
+  Logger.log('ติดตั้งเสร็จ');
 }
 
 const ITEM_HEADER = ['รหัส', 'ชื่อยา', 'ชื่อไทย', 'หน่วยนับ', 'หมวด/ชั้น', 'จุดสั่งซื้อ', 'ใช้งาน', 'ชื่อในคลังบวกหมื้อ'];
@@ -137,9 +135,40 @@ function json(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
-/* PIN อ่านจาก "พร็อพเพอร์ตี้ของสคริปต์" ก่อน (คนเปิดชีตมองไม่เห็น) ถ้าไม่มีจึงใช้ค่าในแท็บตั้งค่า */
+/* ===================== ค่าตั้ง (พร็อพเพอร์ตี้ของสคริปต์) ===================== */
+
+function settings_() {
+  const p = PropertiesService.getScriptProperties().getProperties();
+  const out = {};
+  Object.keys(p).forEach(k => { out[k] = String(p[k] == null ? '' : p[k]).trim(); });
+  Object.keys(DEFAULTS).forEach(k => { if (!out[k]) out[k] = DEFAULTS[k]; });
+  return out;
+}
+
+/* ย้ายค่าจากแท็บ "ตั้งค่า" เดิมเข้าพร็อพเพอร์ตี้ของสคริปต์ แล้วลบแท็บนั้นทิ้ง
+   ค่าที่มีในพร็อพเพอร์ตี้อยู่แล้วจะไม่ถูกทับ · setup() เรียกให้อัตโนมัติ หรือกดรันเองก็ได้ */
+function moveSettingsToProperties() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const props = PropertiesService.getScriptProperties();
+  const cur = props.getProperties();
+  const moved = [];
+  const sh = ss.getSheetByName(SHEET.oldSettings);
+  if (sh) {
+    sh.getDataRange().getValues().slice(1).forEach(r => {
+      const k = String(r[0] || '').trim(), v = String(r[1] == null ? '' : r[1]).trim();
+      if (/^[A-Z_]+$/.test(k) && v && !String(cur[k] || '').trim()) { props.setProperty(k, v); cur[k] = v; moved.push(k); }
+    });
+  }
+  ['FACILITY', 'HUB_ID', 'PIN'].forEach(k => {
+    if (!String(cur[k] || '').trim()) { props.setProperty(k, DEFAULTS[k] || ''); moved.push(k + ' (ค่าเริ่มต้น)'); }
+  });
+  try { accessSettings_(); } catch (_) {}
+  if (sh && ss.getSheets().length > 1) ss.deleteSheet(sh);
+  Logger.log('ย้ายเข้าพร็อพเพอร์ตี้แล้ว: ' + (moved.join(', ') || '-') + (sh ? ' · ลบแท็บตั้งค่าแล้ว' : ''));
+}
+
 function checkPin(db, pin) {
-  const real = String(PropertiesService.getScriptProperties().getProperty('PIN') || db.settings.PIN || DEFAULTS.PIN).trim();
+  const real = String(db.settings.PIN || DEFAULTS.PIN).trim();
   if (String(pin || '').trim() !== real) throw new Error('รหัสผู้ดูแลไม่ถูกต้อง');
 }
 
@@ -159,8 +188,7 @@ function getAll() {
 
 function loadDb() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const settings = {};
-  ss.getSheetByName(SHEET.settings).getDataRange().getValues().slice(1).forEach(r => { if (r[0]) settings[r[0]] = String(r[1]); });
+  const settings = settings_();
   const items = ss.getSheetByName(SHEET.items).getDataRange().getValues().slice(1)
     .filter(r => r[0])
     .map(r => ({ code: String(r[0]), name: String(r[1]), th: String(r[2] || ''), unit: String(r[3] || ''), shelf: String(r[4] || ''), min: Number(r[5]) || 0, active: r[6] === true || String(r[6]).toUpperCase() === 'TRUE', hub: String(r[7] || '').trim() }));
@@ -217,7 +245,7 @@ function hubExpiry(name) {
   if (c) map = JSON.parse(c);
   if (!map) {
     map = {};
-    const id = (loadSettingsOnly().HUB_ID) || DEFAULTS.HUB_ID;
+    const id = settings_().HUB_ID;
     const sh = SpreadsheetApp.openById(id).getSheetByName('StockLots');
     const vals = sh.getDataRange().getValues();
     const h = vals[0].map(String);
@@ -233,18 +261,13 @@ function hubExpiry(name) {
   }
   return map[name] ? map[name].e : '';
 }
-function loadSettingsOnly() {
-  const out = {};
-  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.settings).getDataRange().getValues().slice(1).forEach(r => { if (r[0]) out[r[0]] = String(r[1]); });
-  return out;
-}
 
 /* ล้างแคชวันหมดอายุ (กดรันเมื่อบวกหมื้อเพิ่มล็อตใหม่แล้วอยากเห็นทันที) */
 function refreshHubExpiry() { CacheService.getScriptCache().remove('hubexp'); Logger.log(hubExpiry('Paracetamol tab 500 mg')); }
 
 /* ===================== แจ้งเตือนประจำวัน =====================
  * อีเมล: ใส่ ALERT_EMAILS ใน "พร็อพเพอร์ตี้ของสคริปต์" คั่นด้วยจุลภาค เช่น a@gmail.com, b@gmail.com
- * ไลน์ (ไม่บังคับ): ใส่ LINE_TOKEN และ LINE_TO ในพร็อพเพอร์ตี้ของสคริปต์หรือแท็บตั้งค่า
+ * ไลน์ (ไม่บังคับ): ใส่ LINE_TOKEN และ LINE_TO ในพร็อพเพอร์ตี้ของสคริปต์
  * กดรัน installDailyAlert() หนึ่งครั้ง ระบบจะส่งทุกวันตอน 8 โมงเช้า (ส่งเฉพาะวันที่มีเรื่องต้องแจ้ง)
  */
 function alertData_(db) {
@@ -269,8 +292,7 @@ function dailyAlert() {
   const db = loadDb();
   const A = alertData_(db);
   if (!A.exp.length && !A.low.length) { Logger.log('วันนี้ไม่มีเรื่องต้องแจ้ง'); return; }
-  const props = PropertiesService.getScriptProperties();
-  const emails = String(props.getProperty('ALERT_EMAILS') || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const emails = String(db.settings.ALERT_EMAILS || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
   const nExp = A.exp.filter(x => x.d < 0).length, nSoon = A.exp.length - nExp;
   if (emails.length) {
     const tag = d => d < 0 ? ['หมดอายุแล้ว', '#b3302b', '#f9e3e1'] : d <= 90 ? [`อีก ${d} วัน`, '#b3302b', '#f9e3e1'] : [`อีก ${Math.round(d / 30)} เดือน`, '#8a4a06', '#fbeedd'];
@@ -290,7 +312,7 @@ function dailyAlert() {
         <p style="color:#5d7470;font-size:12px">อีเมลนี้ส่งอัตโนมัติทุกเช้าเฉพาะวันที่มีเรื่องต้องแจ้ง</p></div>`,
     });
   }
-  const token = props.getProperty('LINE_TOKEN') || db.settings.LINE_TOKEN, to = props.getProperty('LINE_TO') || db.settings.LINE_TO;
+  const token = db.settings.LINE_TOKEN, to = db.settings.LINE_TO;
   if (token && to) {
     const line = x => `${x.d < 0 ? '⚫ หมดอายุแล้ว' : x.d <= 90 ? '🔴 ' + x.d + ' วัน' : '🟡 ' + Math.round(x.d / 30) + ' เดือน'} · ${x.name} ${x.q} ${x.u} (${x.e})`;
     let msg = `📦 คลังใน ${A.s.facility}\nประจำวันที่ ${A.date}`;

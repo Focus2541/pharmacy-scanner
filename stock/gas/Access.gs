@@ -23,17 +23,14 @@ function devSheet_() {
   return sh;
 }
 
-/* อ่านจาก "พร็อพเพอร์ตี้ของสคริปต์" (ตั้งค่าโปรเจกต์ใน Apps Script) ซึ่งคนที่เปิดชีตมองไม่เห็น
-   ถ้ายังไม่มี จะสร้างให้อัตโนมัติ: ADMIN_EMAIL = อีเมลเจ้าของสคริปต์, ADMIN_KEY = รหัสลับสุ่ม */
+/* อ่านจาก "พร็อพเพอร์ตี้ของสคริปต์" ถ้ายังไม่มี จะสร้างให้อัตโนมัติ: ADMIN_EMAIL = อีเมลเจ้าของสคริปต์, ADMIN_KEY = รหัสลับสุ่ม */
 function accessSettings_() {
   const props = PropertiesService.getScriptProperties();
   let email = String(props.getProperty('ADMIN_EMAIL') || '').trim();
   let key = String(props.getProperty('ADMIN_KEY') || '').trim();
   if (!email) { email = Session.getEffectiveUser().getEmail(); props.setProperty('ADMIN_EMAIL', email); }
   if (!key) { key = Utilities.getUuid().replace(/-/g, ''); props.setProperty('ADMIN_KEY', key); }
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.settings);
-  const row = sh.getDataRange().getValues().find(v => v[0] === 'FACILITY');
-  return { email, key, facility: (row && String(row[1])) || DEFAULTS.FACILITY };
+  return { email, key, facility: String(props.getProperty('FACILITY') || '').trim() || DEFAULTS.FACILITY };
 }
 
 function sig_(id, key) {
