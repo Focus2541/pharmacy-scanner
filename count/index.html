@@ -205,7 +205,11 @@ $('loc').innerHTML+=LOCS.map(l=>`<option>${esc(l)}</option>`).join('');$('loc').
 /* storage: IndexedDB, keyed "หน่วยบริการ|ชื่อยา" so each รพ.สต. keeps its own counts */
 function openDB(){return new Promise(r=>{try{const o=indexedDB.open('stockcount2',1);o.onupgradeneeded=()=>o.result.createObjectStore('c');
   o.onsuccess=()=>r(o.result);o.onerror=()=>r(null)}catch(e){r(null)}})}
-function put(k,v){if(!db)return;try{const t=db.transaction('c','readwrite');v?t.objectStore('c').put(v,k):t.objectStore('c').delete(k)}catch(e){}}
+/* every save goes to two places: IndexedDB (with photos) and localStorage (numbers only), so a refresh never loses counts */
+let lsOk=true;
+function lsGet(){try{return JSON.parse(localStorage.getItem('sc.counts'))||{}}catch(e){return {}}}
+function lsPut(k,v){try{const m=lsGet();if(v){const {photo,...rest}=v;m[k]=rest}else delete m[k];localStorage.setItem('sc.counts',JSON.stringify(m));lsOk=true}catch(e){lsOk=false}}
+function put(k,v){lsPut(k,v);if(!db)return;try{const t=db.transaction('c','readwrite');v?t.objectStore('c').put(v,k):t.objectStore('c').delete(k)}catch(e){}}
 function loadAll(){return new Promise(r=>{if(!db)return r({});try{const out={},s=db.transaction('c','readonly').objectStore('c'),c=s.openCursor();
   c.onsuccess=()=>{const x=c.result;if(x){out[x.key]=x.value;x.continue()}else r(out)};c.onerror=()=>r({})}catch(e){r({})}})}
 const K=n=>loc+'|'+n;
@@ -391,8 +395,14 @@ $('mergeBtn').addEventListener('click',()=>{
 
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800)}
 $('dev').textContent='รหัสเครื่องนี้ '+devId;renderMerged();render();
-(async()=>{db=await openDB();all=await loadAll();
-  if(!db)toast('เครื่องนี้บันทึกไม่ได้ ข้อมูลจะหายเมื่อปิดหน้า ให้คัดลอกตารางเก็บไว้บ่อย ๆ');render()})();
+all=lsGet();render();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+(async()=>{db=await openDB();const idb=await loadAll();
+  const ls=lsGet();all={...ls,...idb};
+  Object.keys(ls).forEach(k=>{if(!(k in idb)&&db)put(k,ls[k])});
+  let lsTest=true;try{localStorage.setItem('sc.t','1');localStorage.removeItem('sc.t')}catch(e){lsTest=false}
+  if(!db&&!lsTest)toast('เครื่องนี้บันทึกไม่ได้ (อาจเปิดโหมดไม่ระบุตัวตน) ข้อมูลจะหายเมื่อปิดหน้า');
+  render()})();
 </script>
 </body>
 </html>
