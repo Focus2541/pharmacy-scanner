@@ -43,6 +43,14 @@ table.req tr.has td{background:#fffbea}
 .sign div{text-align:center}
 .hint{font-size:.8rem;color:var(--muted)}
 .use{font-size:8.5pt;color:var(--muted);display:block}
+/* มือถือ: คงขนาดตารางแบบกระดาษ แล้วเลื่อนซ้าย-ขวาดู ตัวหนังสือจะไม่บีบซ้อนกัน */
+.swipe{display:none}
+@media screen and (max-width:760px){
+  .paper{padding:14px 0 14px 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-left:0;border-right:0}
+  .form{width:720px;padding-right:12px}
+  .swipe{display:block;position:sticky;left:0;width:calc(100vw - 24px);font-size:.85rem;color:var(--accent);background:var(--soft);border-radius:8px;padding:6px 10px;margin-bottom:10px}
+  table.req input{font-size:16px;padding:4px}
+}
 @media print{
   @page{size:A4;margin:10mm 10mm 12mm}
   body{background:#fff}
@@ -128,7 +136,7 @@ function render(){
     <div>ลงชื่อ ......................................................... ผู้อนุมัติจ่าย<br>${esc(S.approver)}<br>ตำแหน่ง ${esc(S.approverPos)}<br>วันที่ ......../......../........</div>
     <div>ลงชื่อ ......................................................... ผู้รับ<br>( ......................................................... )<br>ตำแหน่ง .........................................................<br>วันที่ ......../......../........</div></div></section>`;
   });
-  $('paper').innerHTML=html;
+  $('paper').innerHTML='<div class="swipe">👉 เลื่อนตารางซ้าย-ขวาเพื่อดูให้ครบทุกช่อง</div>'+html;
 }
 $('paper').addEventListener('input',e=>{const c=e.target.dataset.c;if(!c)return;const v=e.target.value.replace(/[^\d]/g,'');e.target.value=v;if(v)qty[c]=v;else delete qty[c];saveDraft();
   e.target.closest('tr').className=Number(v)>0?'has':'zero'});
