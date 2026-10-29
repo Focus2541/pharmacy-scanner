@@ -16,7 +16,7 @@ const SEED_ITEMS = [
   ["P013", "NSS 0.9% 5 ml inj", "น้ำเกลือ NSS 5 มล. (หลอดพ่นยา) (สารน้ำ น้ำเกลือ) · กล่องละ 50 หลอด", "กล่อง", "1 ยาฉีด", "", true, "NSS inj 5 ml"],
   ["P014", "NSS 0.9% 100 ml inj", "น้ำเกลือ NSS 100 มล. (สารน้ำ น้ำเกลือ)", "ถุง", "1 ยาฉีด", "", true, "NSS inj 100 ml"],
   ["P015", "NSS 0.9% 1000 ml inj", "น้ำเกลือ NSS 1000 มล. (สารน้ำ น้ำเกลือ)", "ถุง", "1 ยาฉีด", "", true, "NSS inj 1000 ml"],
-  ["P016", "Omeprazole 40 mg inj", "โอเมพราโซล ยาฉีดลดกรด (ยากระเพาะ)", "ไวอัล", "1 ยาฉีด", "", true, "Omeprazole inj 40 mg"],
+  ["P016", "Omeprazole 40 mg inj", "โอเมพราโซล ยาฉีด", "ไวอัล", "1 ยาฉีด", "", true, "Omeprazole inj 40 mg"],
   ["P017", "Rabies vaccine", "วัคซีนพิษสุนัขบ้า (วัคซีน)", "แอมพ์", "1 ยาฉีด", "", true, "Rabies Vaccine inj"],
   ["P018", "Sterile water for INJ 10 ml", "น้ำกลั่นสำหรับฉีด 10 มล. (สารน้ำ น้ำเกลือ) · กล่องละ 50 แอมพ์", "กล่อง", "1 ยาฉีด", "", true, "Sterile water for injection inj 10 ml"],
   ["P019", "Aromatic ammonia spirit 450 ml", "เหล้าแอมโมเนีย (ยาดม) 450 มล. (ยาดม แก้วิงเวียน)", "ขวด", "2 ยาใช้ภายนอก", "", true, "Aromatic ammonia spi 450 ml"],
