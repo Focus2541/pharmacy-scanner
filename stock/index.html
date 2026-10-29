@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f7a68">
+<script>/* โหมดสีที่เลือกไว้ (สว่าง/มืด) ใส่ก่อนวาดหน้า จะได้ไม่กระพริบ */
+try{var t=JSON.parse(localStorage.getItem('st.theme'));if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <title>คลังใน</title>
 <meta name="application-name" content="คลังใน">
 <meta name="apple-mobile-web-app-title" content="คลังใน">
@@ -22,9 +24,12 @@
   --display:"Anuphan","IBM Plex Sans Thai",system-ui,sans-serif; --body:"IBM Plex Sans Thai",system-ui,sans-serif;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0f1716; --surface:#172321; --ink:#e3eeeb; --muted:#93aaa5; --line:#29403c;
   --accent:#46c2a8; --accent-soft:#183a33; --warn:#f0a454; --warn-soft:#3a2a17; --bad:#f07b74; --bad-soft:#3d1f1d; --key:#21312e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#172321; --ink:#e3eeeb; --muted:#93aaa5; --line:#29403c;
+  --accent:#46c2a8; --accent-soft:#183a33; --warn:#f0a454; --warn-soft:#3a2a17; --bad:#f07b74; --bad-soft:#3d1f1d; --key:#21312e; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -38,6 +43,8 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 .sub{font-size:.78rem;color:var(--muted)}
 .me{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem;white-space:nowrap}
 .me.admin{border-color:var(--accent);color:var(--accent)}
+.hbtns{display:flex;gap:6px;align-items:center}
+.theme{width:36px;height:36px;flex:none;border:1px solid var(--line);background:var(--surface);border-radius:50%;font-size:1.05rem;line-height:1;padding:0;display:grid;place-items:center}
 .top{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:6px;display:flex;flex-direction:column;gap:8px}
 .search{display:flex;gap:8px}
 .scanbtn{flex:none;border:0;border-radius:12px;background:var(--accent);color:var(--surface);font:700 1.05rem var(--display);padding:0 18px}
@@ -159,7 +166,7 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 <div class="wrap" id="home">
   <header>
     <div><h1 id="fac">คลังใน</h1><div class="sync" id="sync">กำลังโหลด…</div></div>
-    <button class="me" id="meBtn">ตั้งชื่อ</button>
+    <div class="hbtns"><button class="theme" id="themeBtn" aria-label="สลับโหมดสว่าง/มืด"></button><button class="me" id="meBtn">ตั้งชื่อ</button></div>
   </header>
   <div class="banner warn" id="pendingBox" hidden></div>
   <div class="top">
@@ -319,6 +326,12 @@ function renderAll(){
   renderMe();renderTabs();renderView();renderPending();
   if(cur)renderCard();
 }
+/* ---------- โหมดสว่าง/มืด: แตะปุ่มเพื่อสลับ เครื่องจำไว้ ---------- */
+function isDark(){const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches}
+function renderTheme(){const d=isDark();$('themeBtn').textContent=d?'☀️':'🌙';$('themeBtn').title=d?'เปลี่ยนเป็นโหมดสว่าง':'เปลี่ยนเป็นโหมดมืด'}
+$('themeBtn').onclick=()=>{const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;LS.set('st.theme',t);renderTheme()};
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',renderTheme)}catch(e){}
+renderTheme();
 function renderMe(){const b=$('meBtn');b.textContent=me?(pin?'ผู้ดูแล · ':'')+me:'ตั้งชื่อ';b.classList.toggle('admin',!!pin)}
 function counts(){
   const its=items();
