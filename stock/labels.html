@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>สติกเกอร์ QR คลังนอก</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+:root{--ink:#15302b;--muted:#5d7470;--line:#d6e1de;--accent:#0f7a68;--bg:#f3f6f5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "IBM Plex Sans Thai",system-ui,sans-serif}
+.ctl{max-width:900px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+h1{font:700 1.3rem "Anuphan",sans-serif;margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=search]{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit}
+button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#fff;font:inherit;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.pick{max-height:300px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 10px;columns:2 260px}
+.pick label{display:block;font-size:.88rem;padding:3px 0;break-inside:avoid}
+.sheet{width:210mm;margin:12px auto;background:#fff;padding:8mm 6mm;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:36mm;gap:2mm}
+.lab{border:1px dashed #b9c9c5;border-radius:2mm;padding:2mm;display:flex;gap:2mm;align-items:center;overflow:hidden;break-inside:avoid}
+.lab .qr{width:28mm;height:28mm;flex:none}
+.lab .qr svg{width:100%;height:100%;display:block}
+.lab .tx{min-width:0;display:flex;flex-direction:column;gap:.6mm}
+.lab .th{font:700 11pt/1.15 "Anuphan",sans-serif;overflow-wrap:anywhere}
+.lab .en{font-size:7pt;line-height:1.2;color:#333;overflow-wrap:anywhere}
+.lab .cd{font-size:7pt;color:#666}
+.lab .scan{font-size:6.5pt;color:var(--accent);font-weight:500}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  .ctl{display:none}
+  .sheet{margin:0;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="ctl">
+  <h1>สติกเกอร์ QR สำหรับติดชั้นยา</h1>
+  <p class="note" id="info">กำลังโหลดรายการยา…</p>
+  <div class="row">
+    <input type="search" id="q" placeholder="กรองตามชื่อหรือชั้น เช่น A-C, amlo">
+    <button id="all">เลือกทั้งหมดที่เห็น</button><button id="none">ไม่เลือกเลย</button>
+  </div>
+  <div class="pick" id="pick"></div>
+  <div class="row"><button class="primary" id="print">พิมพ์สติกเกอร์</button><span class="note" id="cnt"></span></div>
+  <p class="note">พิมพ์บนกระดาษสติกเกอร์ A4 แล้วตัดตามเส้นประ แผ่นละ 21 ดวง (3×7) สแกนด้วยกล้องมือถือปกติ จะเปิดสต๊อกการ์ดของยาตัวนั้นทันที</p>
+</div>
+<div id="sheets"></div>
+<script>
+const BASE=location.origin+location.pathname.replace(/labels\.html$/,'');
+let api='';try{api=JSON.parse(localStorage.getItem('st.api'))||''}catch(e){}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let items=[],sel=new Set(),q='';
+function qrSvg(text){const qr=qrcode(0,'M');qr.addData(text);qr.make();return qr.createSvgTag({cellSize:4,margin:0,scalable:true})}
+const shown=()=>items.filter(i=>!q||(i.n+' '+i.t+' '+i.s+' '+i.c).toLowerCase().includes(q.toLowerCase()));
+function renderPick(){
+  document.getElementById('pick').innerHTML=shown().map(i=>`<label><input type="checkbox" data-c="${i.c}" ${sel.has(i.c)?'checked':''}> ${i.s?'['+esc(i.s)+'] ':''}${esc(i.t||i.n)}</label>`).join('')||'<p class="note">ไม่พบ</p>';
+  renderSheets();
+}
+function renderSheets(){
+  const list=items.filter(i=>sel.has(i.c));
+  document.getElementById('cnt').textContent=`เลือก ${list.length} ดวง · ${Math.ceil(list.length/21)} แผ่น`;
+  let html='';
+  for(let p=0;p<list.length;p+=21){
+    html+='<div class="sheet">'+list.slice(p,p+21).map(i=>`<div class="lab"><div class="qr">${qrSvg(BASE+'#'+i.c)}</div><div class="tx"><div class="th">${esc(i.t||i.n)}</div>${i.t?`<div class="en">${esc(i.n)}</div>`:''}<div class="cd">${esc(i.c)}${i.s?' · ชั้น '+esc(i.s):''}</div><div class="scan">สแกนก่อนหยิบทุกครั้ง</div></div></div>`).join('')+'</div>';
+  }
+  document.getElementById('sheets').innerHTML=html;
+}
+document.getElementById('pick').addEventListener('change',e=>{const c=e.target.dataset.c;if(!c)return;e.target.checked?sel.add(c):sel.delete(c);renderSheets()});
+document.getElementById('q').addEventListener('input',e=>{q=e.target.value.trim();renderPick()});
+document.getElementById('all').onclick=()=>{shown().forEach(i=>sel.add(i.c));renderPick()};
+document.getElementById('none').onclick=()=>{shown().forEach(i=>sel.delete(i.c));renderPick()};
+document.getElementById('print').onclick=()=>window.print();
+(async()=>{
+  const info=document.getElementById('info');
+  if(!api){info.textContent='เครื่องนี้ยังไม่ได้เชื่อมระบบ ให้เปิดหน้าสต๊อกการ์ดด้วยลิงก์ที่มี ?api= ก่อนหนึ่งครั้ง';return}
+  try{const r=await fetch(api+'?a=all');const j=await r.json();if(!j.ok)throw new Error(j.error);
+    items=j.items.slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.n.localeCompare(b.n));
+    items.forEach(i=>sel.add(i.c));info.textContent=`${j.facility} · ยาที่ใช้งาน ${items.length} รายการ (ตั้งค่าได้ในชีต "รายการยา" ช่องใช้งานและชั้น)`;renderPick()}
+  catch(e){info.textContent='โหลดรายการยาไม่ได้: '+e.message}
+})();
+</script>
+</body>
+</html>
