@@ -23,6 +23,7 @@ function onOpen() {
     .addSeparator()
     .addItem('ดาวน์โหลด PDF ใบเบิก', 'reqPdf')
     .addSeparator()
+    .addItem('เพิ่มยาใหม่ + สร้าง QR', 'addItemDialog')
     .addItem('พิมพ์สติกเกอร์ QR', 'labelsDialog')
     .addToUi();
 }
@@ -65,7 +66,10 @@ function makeRequisition() {
     // รายการ
     const out = [], secRows = [], hasRows = [];
     let sec = '', n = 0;
-    REQ_META.filter(m => m[1] === kind).forEach(m => {
+    const known = new Set(REQ_META.map(m => m[0]));
+    const extra = db.items.filter(i => i.active && !known.has(i.code))           // ยาที่เพิ่มในชีตทีหลัง
+      .map(i => [i.code, /เวชภัณฑ์|lab|วัสดุ/i.test(i.shelf) ? 's' : 'd', 'รายการเพิ่มใหม่', i.name, '', i.unit, null]);
+    REQ_META.concat(extra).filter(m => m[1] === kind).forEach(m => {
       const [c, , s, name, pack, unit, price] = m;
       if (s !== sec) { sec = s; secRows.push(out.length); out.push([s].concat(Array(W - 1).fill(''))); }
       n++;
