@@ -22,6 +22,8 @@ function onOpen() {
     .addItem('แสดงทุกรายการ', 'reqShowAll')
     .addSeparator()
     .addItem('ดาวน์โหลด PDF ใบเบิก', 'reqPdf')
+    .addSeparator()
+    .addItem('พิมพ์สติกเกอร์ QR', 'labelsDialog')
     .addToUi();
 }
 
