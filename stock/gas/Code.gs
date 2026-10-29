@@ -1,5 +1,5 @@
 /**
- * คลังยานอก รพ.สต. — สต๊อกการ์ดออนไลน์
+ * คลังยาใน รพ.สต. — สต๊อกการ์ดออนไลน์
  * ใช้คู่กับหน้าเว็บ https://focus2541.github.io/pharmacy-scanner/stock/
  *
  * แท็บในไฟล์นี้
@@ -242,7 +242,7 @@ function dailyAlert() {
   });
   if (!exp.length && !low.length) return;
   exp.sort((a, b) => a[0] - b[0]);
-  let msg = `📦 คลังนอก ${s.facility}\nประจำวันที่ ${s.today.split('-').reverse().join('/')}`;
+  let msg = `📦 คลังใน ${s.facility}\nประจำวันที่ ${s.today.split('-').reverse().join('/')}`;
   if (exp.length) msg += `\n\nยาใกล้หมดอายุ (${exp.length})\n` + exp.slice(0, 25).map(x => x[1]).join('\n') + (exp.length > 25 ? `\n…และอีก ${exp.length - 25} รายการ` : '');
   if (low.length) msg += `\n\nยาใกล้หมด / หมด (${low.length})\n` + low.slice(0, 20).join('\n') + (low.length > 20 ? `\n…และอีก ${low.length - 20} รายการ` : '');
   UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
