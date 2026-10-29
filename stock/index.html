@@ -8,6 +8,10 @@
 <meta name="application-name" content="คลังใน">
 <meta name="apple-mobile-web-app-title" content="คลังใน">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
 <style>
@@ -120,9 +124,38 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.9rem;z-index:50;max-width:92vw;text-align:center}
 .sync{font-size:.75rem;color:var(--muted)}
 .sync.off{color:var(--bad)}
+/* หน้าปก: แสดงตอนเปิดแอปจนกว่ายอดจะโหลด แตะเพื่อข้ามได้ */
+.cover{position:fixed;inset:0;z-index:70;background:#0f7a68;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));transition:opacity .35s ease,visibility .35s;cursor:pointer}
+.cover.out{opacity:0;visibility:hidden}
+.cover::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.14),transparent 60%);pointer-events:none}
+.cover .ic{width:112px;height:112px;border-radius:28px;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:pop .5s ease-out both}
+.cover h1{font:700 2.6rem/1.1 var(--display);margin:6px 0 0;letter-spacing:.01em;color:#fff}
+.cover .fac{font:600 1.1rem var(--display);opacity:.92}
+.cover .tag{max-width:300px;font-size:.95rem;opacity:.85;margin:0}
+.cover .steps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.cover .steps span{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 12px;font-size:.85rem}
+.cover .dots{display:flex;gap:6px;margin-top:18px}
+.cover .dots i{width:8px;height:8px;border-radius:50%;background:#fff;opacity:.35;animation:dot 1s infinite}
+.cover .dots i:nth-child(2){animation-delay:.15s}.cover .dots i:nth-child(3){animation-delay:.3s}
+.cover .msg{font-size:.82rem;opacity:.8;min-height:1.3em}
+.cover .foot{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:0;right:0;font-size:.75rem;opacity:.7}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes dot{0%,100%{opacity:.3}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cover,.cover .ic,.cover .dots i{animation:none;transition:none}}
 </style>
 </head>
 <body>
+<div class="cover" id="cover" role="status" aria-live="polite">
+  <img class="ic" src="icons/icon.svg" alt="">
+  <h1>คลังใน</h1>
+  <div class="fac" id="coverFac">รพ.สต.บ้านเป้า</div>
+  <p class="tag">สต๊อกการ์ดยาออนไลน์ หยิบแล้วยอดตัดทันที ทุกคนเห็นตรงกัน</p>
+  <div class="steps"><span>📷 สแกน QR ที่ชั้น</span><span>👆 กดหยิบ</span><span>✅ ยอดตัดทันที</span></div>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="msg" id="coverMsg">กำลังโหลดยอดล่าสุด…</div>
+  <div class="foot">แตะเพื่อเข้าใช้งาน</div>
+</div>
 <div class="wrap" id="home">
   <header>
     <div><h1 id="fac">คลังใน</h1><div class="sync" id="sync">กำลังโหลด…</div></div>
@@ -499,7 +532,7 @@ async function gateStatus(){try{const r=await fetch(api+'?a=status&tok='+tok+'&t
 async function showGate(){
   state=null;try{localStorage.removeItem('st.cache')}catch(e){}
   if(!$('gate').hidden&&gatePoll)return;
-  $('gate').hidden=false;if(cur)closeCard();
+  $('gate').hidden=false;if(cur)closeCard();hideCover();
   $('gName').value=me||'';
   const st=await gateStatus();
   if(st==='pending'){gateView('gWait');pollGate()}else if(st==='rejected')gateView('gNo');else if(st==='approved'){hideGate();refresh()}else gateView('gForm');
@@ -518,11 +551,22 @@ $('gSend').onclick=async()=>{
 };
 $('gCheck').onclick=async()=>{const st=await gateStatus();if(st==='approved'){hideGate();toast('ได้รับอนุมัติแล้ว');refresh()}else toast(st==='offline'?'ไม่มีเน็ต':'ยังรออนุมัติอยู่')};
 
+/* ---------- หน้าปก ---------- */
+const coverAt=Date.now();let coverGone=false;
+function hideCover(){if(coverGone)return;coverGone=true;const c=$('cover');c.classList.add('out');setTimeout(()=>c.remove(),400)}
+function coverDone(minMs){setTimeout(hideCover,Math.max(0,minMs-(Date.now()-coverAt)))}
+$('cover').onclick=hideCover;
+if(state&&state.facility)$('coverFac').textContent=state.facility;
+if(/^#[A-Z]\d{3}$/.test(location.hash))hideCover();         // เปิดจาก QR: เข้าการ์ดยาทันที ไม่ต้องรอปก
+else if(state)coverDone(900);                                  // มียอดเก่าในเครื่องแล้ว: โชว์ปกสั้นๆ
+setTimeout(()=>{if(!coverGone)$('coverMsg').textContent='เน็ตช้า กำลังลองต่อ… แตะเพื่อดูยอดล่าสุดในเครื่อง'},6000);
+setTimeout(hideCover,12000);
+
 /* ---------- start ---------- */
 function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3}$/.test(c))openCard(c)}
 window.addEventListener('hashchange',route);
 renderAll();if(state)setSync(false);
-(async()=>{if(state)route();await refresh();if(!cur)route()})();
+(async()=>{if(state)route();await refresh();coverDone(state?900:600);if(!cur)route()})();
 setInterval(()=>{if(document.visibilityState==='visible')refresh()},15000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
 window.addEventListener('online',flushPending);
