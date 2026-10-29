@@ -51,7 +51,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff;fo
 <div id="sheets"></div>
 <script>
 const BASE=location.origin+location.pathname.replace(/labels\.html$/,'');
-let api='';try{api=JSON.parse(localStorage.getItem('st.api'))||''}catch(e){}
+let api='https://script.google.com/macros/s/AKfycbwopNj3zA6GcUPBrSNl7t287hA7QZg7bXapRai9WIldVwsaNnycBvI6taTpbXJ498_1/exec';try{api=JSON.parse(localStorage.getItem('st.api'))||api}catch(e){}
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let items=[],sel=new Set(),q='';
 function qrSvg(text){const qr=qrcode(0,'M');qr.addData(text);qr.make();return qr.createSvgTag({cellSize:4,margin:0,scalable:true})}
@@ -78,7 +78,7 @@ document.getElementById('print').onclick=()=>window.print();
   const info=document.getElementById('info');
   if(!api){info.textContent='เครื่องนี้ยังไม่ได้เชื่อมระบบ ให้เปิดหน้าสต๊อกการ์ดด้วยลิงก์ที่มี ?api= ก่อนหนึ่งครั้ง';return}
   try{const r=await fetch(api+'?a=all');const j=await r.json();if(!j.ok)throw new Error(j.error);
-    items=j.items.slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.n.localeCompare(b.n));
+    items=j.items.slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.c.localeCompare(b.c));
     items.forEach(i=>sel.add(i.c));info.textContent=`${j.facility} · ยาที่ใช้งาน ${items.length} รายการ (ตั้งค่าได้ในชีต "รายการยา" ช่องใช้งานและชั้น)`;renderPick()}
   catch(e){info.textContent='โหลดรายการยาไม่ได้: '+e.message}
 })();

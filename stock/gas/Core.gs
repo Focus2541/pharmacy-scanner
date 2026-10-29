@@ -62,7 +62,7 @@ var Core = (function () {
     const it = item(db, b.c), q = int(b.q);
     if (!(q >= 1)) throw new Error('จำนวนต้องเป็น 1 ขึ้นไป');
     let exp = String(b.exp || '').slice(0, 10);
-    if (!exp && db.hubExp) { try { exp = db.hubExp(it.name) || ''; } catch (_) { exp = ''; } }
+    if (!exp && db.hubExp) { try { exp = db.hubExp(it.hub || it.name) || ''; } catch (_) { exp = ''; } }
     const before = bal(db, it.code);
     const same = lotsOf(db, it.code).find(l => l.exp === exp && l.left >= 0 && l.date === iso(now));
     if (same) { same.left += q; same.qin += q; touch(db, same); } else newLot(db, it, exp, q, q, now);
@@ -90,7 +90,7 @@ var Core = (function () {
       if (latest) { latest.left += rest; touch(db, latest); }
       else {
         let exp = String(b.exp || '');
-        if (!exp && db.hubExp) { try { exp = db.hubExp(it.name) || ''; } catch (_) {} }
+        if (!exp && db.hubExp) { try { exp = db.hubExp(it.hub || it.name) || ''; } catch (_) {} }
         newLot(db, it, exp, rest, rest, now);
       }
     }

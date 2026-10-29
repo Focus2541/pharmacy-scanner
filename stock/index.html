@@ -182,15 +182,15 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 <div class="toast" id="toast" hidden></div>
 
 <script>
-const API_URL = ''; // ใส่ลิงก์ Web App ของ Apps Script หลัง deploy (หรือเปิดหน้านี้ด้วย ?api=ลิงก์ หนึ่งครั้ง)
+const API_URL = 'https://script.google.com/macros/s/AKfycbwopNj3zA6GcUPBrSNl7t287hA7QZg7bXapRai9WIldVwsaNnycBvI6taTpbXJ498_1/exec'; // ใส่ลิงก์ Web App ของ Apps Script หลัง deploy (หรือเปิดหน้านี้ด้วย ?api=ลิงก์ หนึ่งครั้ง)
 const $ = id => document.getElementById(id);
 const fmt = v => Number(v).toLocaleString('th-TH');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const LS = {get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 
-let api = API_URL;
+let api = '';
 try{const p=new URLSearchParams(location.search).get('api');if(p){LS.set('st.api',p);history.replaceState(null,'',location.pathname+location.hash)}}catch(e){}
-if(!api) api = LS.get('st.api','');
+api = LS.get('st.api','') || API_URL;
 let dev = LS.get('st.dev',''); if(!dev){dev=Math.random().toString(36).slice(2,8).toUpperCase();LS.set('st.dev',dev)}
 let me = LS.get('st.me',''), pin = LS.get('st.pin','');
 let state = LS.get('st.cache', null), lastSync = LS.get('st.cacheAt', 0);
@@ -234,6 +234,7 @@ const matches=it=>!query||query.toLowerCase().split(/\s+/).filter(Boolean).every
 const isLow=it=>it.b>0&&it.min>0&&it.b<=it.min;
 const isOut=it=>it.has&&it.b<=0;
 const unitOf=it=>it.u||'ชิ้น';
+const shelfName=s=>String(s||'').replace(/^\d+\s*/,'');
 
 /* ---------- home ---------- */
 function renderAll(){
@@ -256,7 +257,7 @@ function renderTabs(){
 function rowHTML(it){
   const se=soonest(it),t=se?tier(se):'';
   const chips=[];
-  if(it.s)chips.push(`<span class="chip">ชั้น ${esc(it.s)}</span>`);
+  if(it.s)chips.push(`<span class="chip">${esc(shelfName(it.s))}</span>`);
   if(se&&t)chips.push(`<span class="chip ${t}">หมดอายุ ${thDate(se)} · ${tierText(se)}</span>`);
   if(it.b<0)chips.push('<span class="chip bad">ยอดติดลบ ต้องนับใหม่</span>');
   else if(it.b===0&&it.has)chips.push('<span class="chip bad">หมด</span>');
@@ -290,15 +291,15 @@ $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)
 $('q').addEventListener('input',e=>{query=e.target.value.trim();renderTabs();renderView()});
 
 /* ---------- walk count (admin) ---------- */
-function walkList(){return items().slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.n.localeCompare(b.n))}
+function walkList(){return items().slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.c.localeCompare(b.c))}
 function renderWalk(){
   const L=walkList();if(!L.length){$('view').innerHTML='<div class="more">ไม่มีรายการ</div>';return}
   if(walk===null){walk=LS.get('st.walk',0);if(walk>=L.length)walk=0}
   const it=L[walk];
-  $('view').innerHTML=`<div class="panel"><div class="walkhead"><span>ตัวที่ ${walk+1} / ${L.length}${it.s?' · ชั้น '+esc(it.s):''}</span><span>ในระบบ ${fmt(it.b)} ${esc(unitOf(it))}</span></div>
+  $('view').innerHTML=`<div class="panel"><div class="walkhead"><span>ตัวที่ ${walk+1} / ${L.length}${it.s?' · '+esc(shelfName(it.s)):''}</span><span>ในระบบ ${fmt(it.b)} ${esc(unitOf(it))}</span></div>
    <div><b style="font:600 1.15rem var(--display)">${esc(it.n)}</b>${it.t?`<div>${esc(it.t)}</div>`:''}</div>
    <div class="btns" style="display:flex;gap:8px"><button class="btn" id="wPrev">‹ ก่อนหน้า</button><button class="btn primary" id="wOpen" style="flex:1">นับตัวนี้</button><button class="btn" id="wNext">ถัดไป ›</button></div>
-   <p class="note">กด "นับตัวนี้" ใส่จำนวนที่เห็นจริง แล้วกดบันทึก ระบบจะไปตัวถัดไปให้เอง เรียงตามช่อง "ชั้น" ในชีตรายการยา</p></div>`;
+   <p class="note">กด "นับตัวนี้" ใส่จำนวนที่เห็นจริง แล้วกดบันทึก ระบบจะไปตัวถัดไปให้เอง เรียงตามช่อง "หมวด/ชั้น" ในชีตรายการยา</p></div>`;
   $('wPrev').onclick=()=>{walk=(walk-1+L.length)%L.length;LS.set('st.walk',walk);renderWalk()};
   $('wNext').onclick=()=>{walk=(walk+1)%L.length;LS.set('st.walk',walk);renderWalk()};
   $('wOpen').onclick=()=>{openCard(it.c,{mode:'count',walk:true})};
@@ -323,7 +324,7 @@ function closeCard(){
 function renderCard(){
   const it=find(cur.c);if(!it)return;
   $('cCode').textContent='รหัส '+it.c;$('cName').textContent=it.n;$('cTh').textContent=it.t;$('cTh').hidden=!it.t;
-  $('cShelf').textContent=it.s?'ชั้น '+it.s:'';
+  $('cShelf').textContent=shelfName(it.s);
   const bb=$('balbox');bb.className='balbox '+(it.b<0||isOut(it)?'neg':isLow(it)?'low':'');
   $('cBal').innerHTML=`${fmt(it.b)} <small>${esc(unitOf(it))}</small>`;
   const L=mergedLots(it);

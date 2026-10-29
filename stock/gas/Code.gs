@@ -44,13 +44,8 @@ function setup() {
     st.getRange('B:B').setNumberFormat('@');
     st.getRange('B3').setValue(DEFAULTS.PIN);
   }
-  const it = mk(SHEET.items, ['รหัส', 'ชื่อยา', 'ชื่อไทย', 'หน่วยนับ', 'ชั้น', 'จุดสั่งซื้อ', 'ใช้งาน']);
-  if (it.getLastRow() === 1) {
-    const rows = SEED_ITEMS.map(r => [r[0], r[1], r[2], r[3], '', '', true]);
-    it.getRange(2, 1, rows.length, 7).setValues(rows);
-    it.getRange(2, 7, rows.length, 1).insertCheckboxes();
-    it.autoResizeColumns(1, 4);
-  }
+  const it = mk(SHEET.items, ITEM_HEADER);
+  if (it.getLastRow() === 1) writeItems_(it);
   mk(SHEET.lots, ['lot_id', 'รหัส', 'ชื่อยา', 'วันหมดอายุ', 'รับเข้า', 'คงเหลือ', 'วันที่รับ']);
   mk(SHEET.moves, ['move_id', 'เวลา', 'ประเภท', 'รหัส', 'ชื่อยา', 'จำนวน', 'ก่อน', 'หลัง', 'วันหมดอายุ', 'ผู้ทำ', 'เครื่อง', 'หมายเหตุ', 'ตัดจากล็อต']);
   const sm = mk(SHEET.summary, ['รหัส', 'ชื่อยา', 'คงเหลือ', 'หมดอายุเร็วสุด']);
@@ -65,6 +60,26 @@ function setup() {
   const s1 = ss.getSheetByName('Sheet1') || ss.getSheetByName('ชีต1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(s1);
   SpreadsheetApp.getUi && Logger.log('ติดตั้งเสร็จ');
+}
+
+const ITEM_HEADER = ['รหัส', 'ชื่อยา', 'ชื่อไทย', 'หน่วยนับ', 'หมวด/ชั้น', 'จุดสั่งซื้อ', 'ใช้งาน', 'ชื่อในคลังบวกหมื้อ'];
+function writeItems_(sh) {
+  const rows = SEED_ITEMS.map(r => [r[0], r[1], r[2], r[3], r[4] || '', r[5] || '', r[6] !== false, r[7] || '']);
+  sh.getRange(1, 1, 1, ITEM_HEADER.length).setValues([ITEM_HEADER]).setFontWeight('bold').setBackground('#e0f1ec');
+  sh.getRange(2, 1, rows.length, ITEM_HEADER.length).setValues(rows);
+  sh.getRange(2, 7, rows.length, 1).insertCheckboxes();
+  sh.autoResizeColumns(1, 5);
+}
+
+/* แทนที่แท็บรายการยาด้วยรายการใน Items.gs (ใช้ตอนตั้งค่าครั้งแรกเท่านั้น) */
+function resetItems() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lots = ss.getSheetByName(SHEET.lots);
+  if (lots && lots.getLastRow() > 1) throw new Error('มีข้อมูลรับเข้าในแท็บล็อตแล้ว ถ้าต้องการเริ่มใหม่จริง ให้ลบแถวข้อมูลในแท็บล็อตและประวัติก่อน แล้วรันอีกครั้ง');
+  const sh = ss.getSheetByName(SHEET.items);
+  sh.clear();
+  writeItems_(sh);
+  Logger.log('ตั้งรายการยาใหม่ ' + SEED_ITEMS.length + ' รายการแล้ว');
 }
 
 /* ===================== API ===================== */
@@ -125,7 +140,7 @@ function loadDb() {
   ss.getSheetByName(SHEET.settings).getDataRange().getValues().slice(1).forEach(r => { if (r[0]) settings[r[0]] = String(r[1]); });
   const items = ss.getSheetByName(SHEET.items).getDataRange().getValues().slice(1)
     .filter(r => r[0])
-    .map(r => ({ code: String(r[0]), name: String(r[1]), th: String(r[2] || ''), unit: String(r[3] || ''), shelf: String(r[4] || ''), min: Number(r[5]) || 0, active: r[6] === true || String(r[6]).toUpperCase() === 'TRUE' }));
+    .map(r => ({ code: String(r[0]), name: String(r[1]), th: String(r[2] || ''), unit: String(r[3] || ''), shelf: String(r[4] || ''), min: Number(r[5]) || 0, active: r[6] === true || String(r[6]).toUpperCase() === 'TRUE', hub: String(r[7] || '').trim() }));
   const lotSh = ss.getSheetByName(SHEET.lots);
   const lots = lotSh.getLastRow() > 1 ? lotSh.getRange(2, 1, lotSh.getLastRow() - 1, 7).getValues().map((r, i) => ({
     row: i + 2, id: String(r[0]), code: String(r[1]), name: String(r[2]), exp: toIso(r[3]), qin: Number(r[4]) || 0, left: Number(r[5]) || 0, date: toIso(r[6]),
