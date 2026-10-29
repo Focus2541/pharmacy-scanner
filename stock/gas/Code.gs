@@ -242,38 +242,70 @@ function loadSettingsOnly() {
 /* ล้างแคชวันหมดอายุ (กดรันเมื่อบวกหมื้อเพิ่มล็อตใหม่แล้วอยากเห็นทันที) */
 function refreshHubExpiry() { CacheService.getScriptCache().remove('hubexp'); Logger.log(hubExpiry('Paracetamol tab 500 mg')); }
 
-/* ===================== แจ้งเตือนทางไลน์ (ไม่บังคับ) =====================
- * ใส่ LINE_TOKEN (Channel access token ของ LINE OA) และ LINE_TO (รหัสกลุ่มไลน์ของบ้านเป้า)
- * ในแท็บตั้งค่า แล้วกดรัน installDailyAlert() หนึ่งครั้ง ระบบจะส่งทุกวันตอน 8 โมงเช้า
+/* ===================== แจ้งเตือนประจำวัน =====================
+ * อีเมล: ใส่ ALERT_EMAILS ใน "พร็อพเพอร์ตี้ของสคริปต์" คั่นด้วยจุลภาค เช่น a@gmail.com, b@gmail.com
+ * ไลน์ (ไม่บังคับ): ใส่ LINE_TOKEN และ LINE_TO ในพร็อพเพอร์ตี้ของสคริปต์หรือแท็บตั้งค่า
+ * กดรัน installDailyAlert() หนึ่งครั้ง ระบบจะส่งทุกวันตอน 8 โมงเช้า (ส่งเฉพาะวันที่มีเรื่องต้องแจ้ง)
  */
-function dailyAlert() {
-  const db = loadDb();
-  const token = db.settings.LINE_TOKEN, to = db.settings.LINE_TO;
-  if (!token || !to) { Logger.log('ยังไม่ได้ตั้ง LINE_TOKEN / LINE_TO'); return; }
+function alertData_(db) {
   const s = Core.snapshot(db, new Date());
   const day = iso => Math.round((new Date(iso) - new Date(s.today)) / 864e5);
+  const dmy = iso => iso.split('-').reverse().join('/');
   const exp = [], low = [];
   s.items.forEach(it => {
     const name = it.t || it.n, u = it.u || 'ชิ้น';
     it.lots.forEach(([e, q]) => {
       if (!e || q <= 0) return;
       const d = day(e);
-      if (d <= 180) exp.push([d, `${d < 0 ? '⚫ หมดอายุแล้ว' : d <= 90 ? '🔴 ' + d + ' วัน' : '🟡 ' + Math.round(d / 30) + ' เดือน'} · ${name} ${q} ${u} (${e.split('-').reverse().join('/')})`]);
+      if (d <= 180) exp.push({ d, name, en: it.n, q, u, e: dmy(e), c: it.c });
     });
-    if (it.has && (it.b <= 0 || (it.min > 0 && it.b <= it.min))) low.push(`${it.b <= 0 ? '⚪ หมด' : '🟠 เหลือ ' + it.b + ' ' + u} · ${name}`);
+    if (it.has && (it.b <= 0 || (it.min > 0 && it.b <= it.min))) low.push({ name, en: it.n, b: it.b, u, min: it.min, c: it.c });
   });
-  if (!exp.length && !low.length) return;
-  exp.sort((a, b) => a[0] - b[0]);
-  let msg = `📦 คลังใน ${s.facility}\nประจำวันที่ ${s.today.split('-').reverse().join('/')}`;
-  if (exp.length) msg += `\n\nยาใกล้หมดอายุ (${exp.length})\n` + exp.slice(0, 25).map(x => x[1]).join('\n') + (exp.length > 25 ? `\n…และอีก ${exp.length - 25} รายการ` : '');
-  if (low.length) msg += `\n\nยาใกล้หมด / หมด (${low.length})\n` + low.slice(0, 20).join('\n') + (low.length > 20 ? `\n…และอีก ${low.length - 20} รายการ` : '');
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify({ to, messages: [{ type: 'text', text: msg.slice(0, 4900) }] }), muteHttpExceptions: true,
-  });
+  exp.sort((a, b) => a.d - b.d);
+  return { s, exp, low, date: dmy(s.today) };
+}
+
+function dailyAlert() {
+  const db = loadDb();
+  const A = alertData_(db);
+  if (!A.exp.length && !A.low.length) { Logger.log('วันนี้ไม่มีเรื่องต้องแจ้ง'); return; }
+  const props = PropertiesService.getScriptProperties();
+  const emails = String(props.getProperty('ALERT_EMAILS') || '').split(/[,;\s]+/).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const nExp = A.exp.filter(x => x.d < 0).length, nSoon = A.exp.length - nExp;
+  if (emails.length) {
+    const tag = d => d < 0 ? ['หมดอายุแล้ว', '#b3302b', '#f9e3e1'] : d <= 90 ? [`อีก ${d} วัน`, '#b3302b', '#f9e3e1'] : [`อีก ${Math.round(d / 30)} เดือน`, '#8a4a06', '#fbeedd'];
+    const td = 'padding:6px 8px;border-bottom:1px solid #e3ebe9;vertical-align:top';
+    const expRows = A.exp.map(x => { const [t, fg, bg] = tag(x.d); return `<tr><td style="${td}"><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:99px;font-size:12px;white-space:nowrap">${t}</span></td><td style="${td}"><b>${esc_(x.name)}</b><br><span style="color:#5d7470;font-size:12px">${esc_(x.en)}</span></td><td style="${td};white-space:nowrap">${x.e}</td><td style="${td};text-align:right;white-space:nowrap">${x.q} ${esc_(x.u)}</td></tr>`; }).join('');
+    const lowRows = A.low.map(x => `<tr><td style="${td}"><span style="background:${x.b <= 0 ? '#f9e3e1' : '#fbeedd'};color:${x.b <= 0 ? '#b3302b' : '#8a4a06'};padding:2px 8px;border-radius:99px;font-size:12px">${x.b <= 0 ? 'หมด' : 'ใกล้หมด'}</span></td><td style="${td}"><b>${esc_(x.name)}</b><br><span style="color:#5d7470;font-size:12px">${esc_(x.en)}</span></td><td style="${td};text-align:right;white-space:nowrap">เหลือ ${x.b} ${esc_(x.u)}</td><td style="${td};color:#5d7470;white-space:nowrap">จุดสั่งซื้อ ${x.min || '-'}</td></tr>`).join('');
+    const table = (title, rows) => rows ? `<h3 style="margin:18px 0 6px;font-size:16px">${title}</h3><table style="border-collapse:collapse;width:100%;font-size:14px">${rows}</table>` : '';
+    MailApp.sendEmail({
+      to: emails.join(','),
+      subject: `[คลังใน ${A.s.facility}] ${A.date} · หมดอายุ ${nExp} · ใกล้หมดอายุ ${nSoon} · ใกล้หมด/หมด ${A.low.length}`,
+      htmlBody: `<div style="font-family:sans-serif;max-width:640px;color:#15302b">
+        <p style="font-size:15px">สรุปคลังใน <b>${esc_(A.s.facility)}</b> ประจำวันที่ ${A.date}</p>
+        ${nExp ? `<p style="background:#f9e3e1;color:#b3302b;padding:10px 12px;border-radius:10px">มียาหมดอายุแล้ว ${nExp} รายการ ให้แยกออกจากชั้น แล้วกด "ตัดหมดอายุ/ชำรุด" ในแอป</p>` : ''}
+        ${table(`ยาใกล้หมดอายุภายใน 6 เดือน (${A.exp.length})`, expRows)}
+        ${table(`ยาใกล้หมด / หมด (${A.low.length})`, lowRows)}
+        <p style="margin-top:20px"><a href="https://focus2541.github.io/pharmacy-scanner/stock/" style="background:#0f7a68;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold">เปิดแอปคลังใน</a></p>
+        <p style="color:#5d7470;font-size:12px">อีเมลนี้ส่งอัตโนมัติทุกเช้าเฉพาะวันที่มีเรื่องต้องแจ้ง</p></div>`,
+    });
+  }
+  const token = props.getProperty('LINE_TOKEN') || db.settings.LINE_TOKEN, to = props.getProperty('LINE_TO') || db.settings.LINE_TO;
+  if (token && to) {
+    const line = x => `${x.d < 0 ? '⚫ หมดอายุแล้ว' : x.d <= 90 ? '🔴 ' + x.d + ' วัน' : '🟡 ' + Math.round(x.d / 30) + ' เดือน'} · ${x.name} ${x.q} ${x.u} (${x.e})`;
+    let msg = `📦 คลังใน ${A.s.facility}\nประจำวันที่ ${A.date}`;
+    if (A.exp.length) msg += `\n\nยาใกล้หมดอายุ (${A.exp.length})\n` + A.exp.slice(0, 25).map(line).join('\n') + (A.exp.length > 25 ? `\n…และอีก ${A.exp.length - 25} รายการ` : '');
+    if (A.low.length) msg += `\n\nยาใกล้หมด / หมด (${A.low.length})\n` + A.low.slice(0, 20).map(x => `${x.b <= 0 ? '⚪ หมด' : '🟠 เหลือ ' + x.b + ' ' + x.u} · ${x.name}`).join('\n');
+    UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + token },
+      payload: JSON.stringify({ to, messages: [{ type: 'text', text: msg.slice(0, 4900) }] }), muteHttpExceptions: true,
+    });
+  }
+  if (!emails.length && !(token && to)) Logger.log('ยังไม่ได้ตั้ง ALERT_EMAILS ในพร็อพเพอร์ตี้ของสคริปต์');
 }
 function installDailyAlert() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'dailyAlert').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('dailyAlert').timeBased().everyDays(1).atHour(8).inTimezone(TZ).create();
   dailyAlert();
+  Logger.log('ตั้งเวลาส่งทุกวัน 8 โมงเช้าแล้ว');
 }
