@@ -23,14 +23,17 @@ function devSheet_() {
   return sh;
 }
 
+/* อ่านจาก "พร็อพเพอร์ตี้ของสคริปต์" (ตั้งค่าโปรเจกต์ใน Apps Script) ซึ่งคนที่เปิดชีตมองไม่เห็น
+   ถ้ายังไม่มี จะสร้างให้อัตโนมัติ: ADMIN_EMAIL = อีเมลเจ้าของสคริปต์, ADMIN_KEY = รหัสลับสุ่ม */
 function accessSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  let email = String(props.getProperty('ADMIN_EMAIL') || '').trim();
+  let key = String(props.getProperty('ADMIN_KEY') || '').trim();
+  if (!email) { email = Session.getEffectiveUser().getEmail(); props.setProperty('ADMIN_EMAIL', email); }
+  if (!key) { key = Utilities.getUuid().replace(/-/g, ''); props.setProperty('ADMIN_KEY', key); }
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.settings);
-  const vals = sh.getDataRange().getValues();
-  const get = k => { const r = vals.find(v => v[0] === k); return r ? String(r[1]) : ''; };
-  let email = get('ADMIN_EMAIL'), key = get('ADMIN_KEY');
-  if (!email) { email = Session.getEffectiveUser().getEmail(); sh.appendRow(['ADMIN_EMAIL', email, 'อีเมลที่รับคำขอใช้งานจากเครื่องใหม่ (เปลี่ยนได้)']); }
-  if (!key) { key = Utilities.getUuid().replace(/-/g, ''); sh.appendRow(['ADMIN_KEY', key, 'รหัสลับใช้ยืนยันลิงก์อนุมัติในอีเมล ห้ามแชร์']); }
-  return { email, key, facility: get('FACILITY') || DEFAULTS.FACILITY };
+  const row = sh.getDataRange().getValues().find(v => v[0] === 'FACILITY');
+  return { email, key, facility: (row && String(row[1])) || DEFAULTS.FACILITY };
 }
 
 function sig_(id, key) {
