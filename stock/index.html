@@ -236,10 +236,9 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
   <div class="panel" id="gForm">
     <div class="lock" aria-hidden="true">🔒</div>
     <h2>ขอสิทธิ์ใช้งานคลังใน</h2>
-    <p class="note">เครื่องนี้ยังไม่ได้รับอนุญาต กรอกชื่อแล้วกดส่งคำขอ ผู้ดูแลระบบจะได้รับอีเมลและอนุมัติให้ ใช้เวลาไม่นาน</p>
+    <p class="note">เครื่องนี้ยังไม่ได้รับอนุญาต กรอกชื่อแล้วกดส่งคำขอ ผู้ดูแลระบบจะอนุมัติให้ ใช้เวลาไม่นาน</p>
     <div class="field"><label for="gName">ชื่อ-นามสกุล หรือชื่อเล่นที่ทีมรู้จัก</label><input id="gName" autocomplete="name"></div>
     <div class="field"><label for="gRole">ตำแหน่ง/หน้าที่</label><input id="gRole" placeholder="พยาบาล, ผู้ช่วย, แม่บ้าน"></div>
-    <div class="field"><label for="gEmail">อีเมล (ไม่บังคับ ใส่แล้วจะได้รับแจ้งเมื่ออนุมัติ)</label><input id="gEmail" type="email" inputmode="email" autocomplete="email"></div>
     <button class="btn primary" id="gSend">ส่งคำขอ</button>
   </div>
   <div class="panel" id="gWait" hidden>
@@ -542,7 +541,7 @@ function pollGate(){clearInterval(gatePoll);gatePoll=setInterval(async()=>{const
 $('gSend').onclick=async()=>{
   const name=$('gName').value.trim();if(!name){toast('ใส่ชื่อก่อนส่งคำขอ');$('gName').focus();return}
   $('gSend').disabled=true;
-  try{const r=await fetch(api,{method:'POST',body:JSON.stringify({a:'register',tok,name,role:$('gRole').value.trim(),email:$('gEmail').value.trim(),ua:navigator.userAgent})});
+  try{const r=await fetch(api,{method:'POST',body:JSON.stringify({a:'register',tok,name,role:$('gRole').value.trim(),ua:navigator.userAgent})});
     const j=await r.json();if(!j.ok)throw new Error(j.error);
     if(!me){me=name;LS.set('st.me',me);renderMe()}
     if(j.status==='approved'){hideGate();refresh()}else if(j.status==='rejected')gateView('gNo');else{gateView('gWait');pollGate()}}
