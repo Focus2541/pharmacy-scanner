@@ -32,7 +32,14 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 .me{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem;white-space:nowrap}
 .me.admin{border-color:var(--accent);color:var(--accent)}
 .top{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:6px;display:flex;flex-direction:column;gap:8px}
-.search input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:1.02rem}
+.search{display:flex;gap:8px}
+.scanbtn{flex:none;border:0;border-radius:12px;background:var(--accent);color:var(--surface);font:700 1.05rem var(--display);padding:0 18px}
+.scan{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.scan video{width:100%;height:100%;object-fit:cover}
+.scan .frame{position:absolute;width:min(70vw,320px);aspect-ratio:1;border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.scan .msg{position:absolute;top:calc(24px + env(safe-area-inset-top,0px));left:16px;right:16px;text-align:center;color:#fff;font:600 1.1rem var(--display)}
+.scan .close{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom,0px));border:0;border-radius:999px;padding:14px 28px;font:600 1rem var(--body);background:#fff;color:#111}
+.search input{flex:1;min-width:0;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:1.02rem}
 .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 .tabs button{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.86rem;white-space:nowrap}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -116,7 +123,7 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
   </header>
   <div class="banner warn" id="pendingBox" hidden></div>
   <div class="top">
-    <div class="search"><input type="search" id="q" placeholder="ค้นหายา เช่น พารา, amlo" autocomplete="off" enterkeyhint="search"></div>
+    <div class="search"><input type="search" id="q" placeholder="ค้นหายา เช่น พารา, amlo" autocomplete="off" enterkeyhint="search"><button class="scanbtn" id="scanBtn">📷 สแกน</button></div>
     <div class="tabs" id="tabs"></div>
   </div>
   <div id="view"></div>
@@ -179,7 +186,9 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
     <button class="btn" id="pinCancel">ยกเลิก</button>
   </div>
 </div>
+<div class="scan" id="scan" hidden><video id="scanVid" playsinline muted></video><div class="frame"></div><div class="msg" id="scanMsg">เล็งกล้องไปที่ QR บนป้ายชั้นยา</div><button class="close" id="scanClose">ปิดกล้อง</button></div>
 <div class="toast" id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbwopNj3zA6GcUPBrSNl7t287hA7QZg7bXapRai9WIldVwsaNnycBvI6taTpbXJ498_1/exec'; // ใส่ลิงก์ Web App ของ Apps Script หลัง deploy (หรือเปิดหน้านี้ด้วย ?api=ลิงก์ หนึ่งครั้ง)
@@ -409,6 +418,39 @@ function syncAdminLabel(){$('adminLogin').textContent=pin?'ออกจากโ
 new MutationObserver(syncAdminLabel).observe($('nameModal'),{attributes:true});
 
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+
+/* ---------- scan QR in the page ---------- */
+let scanStream=null,scanTimer=null,detector=null;
+async function startScan(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('เครื่องนี้เปิดกล้องในหน้าเว็บไม่ได้ ให้ใช้แอปกล้องสแกน QR แทน');return}
+  $('scan').hidden=false;$('scanMsg').textContent='เล็งกล้องไปที่ QR บนป้ายชั้นยา';
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=$('scanVid');v.srcObject=scanStream;await v.play();
+    try{if('BarcodeDetector' in window)detector=new BarcodeDetector({formats:['qr_code']})}catch(e){detector=null}
+    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+    const tick=async()=>{
+      if(!scanStream)return;
+      let txt='';
+      try{
+        if(detector){const r=await detector.detect(v);if(r.length)txt=r[0].rawValue}
+        else if(window.jsQR&&v.videoWidth){const w=480,h=Math.round(v.videoHeight*w/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h);if(r)txt=r.data}
+      }catch(e){}
+      const m=txt.match(/#?([A-Z]\d{3})\s*$/);
+      if(m){
+        if(navigator.vibrate)navigator.vibrate(80);
+        stopScan();
+        if(find(m[1]))openCard(m[1]);else toast('QR นี้ไม่ใช่ยาในคลังนี้ ('+m[1]+')');
+        return;
+      }else if(txt){$('scanMsg').textContent='QR นี้ไม่ใช่สติกเกอร์ยา ลองใหม่'}
+      scanTimer=setTimeout(tick,180);
+    };
+    tick();
+  }catch(e){stopScan();toast('เปิดกล้องไม่ได้ ให้กดอนุญาตใช้กล้องใน Chrome แล้วลองใหม่')}
+}
+function stopScan(){clearTimeout(scanTimer);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('scan').hidden=true}
+$('scanBtn').onclick=startScan;$('scanClose').onclick=stopScan;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'&&scanStream)stopScan()});
 
 /* ---------- start ---------- */
 function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3}$/.test(c))openCard(c)}
