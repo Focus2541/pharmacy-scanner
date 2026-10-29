@@ -15,7 +15,10 @@ const REQ_SIGN = {
 const TH_MONTH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 function onOpen() {
+  try { refreshDashboard(); } catch (_) {}      // แดชบอร์ดอัปเดตทุกครั้งที่เปิดชีต
   SpreadsheetApp.getUi().createMenu('คลังใน')
+    .addItem('รีเฟรชแดชบอร์ด', 'refreshDashboard')
+    .addSeparator()
     .addItem('สร้างใบเบิกเดือนนี้', 'makeRequisition')
     .addSeparator()
     .addItem('ซ่อนรายการที่ไม่เบิก', 'reqHideZero')
