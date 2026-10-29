@@ -113,6 +113,10 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 .walkhead{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted)}
 .modal{position:fixed;inset:0;z-index:30;background:rgba(10,20,18,.5);display:flex;align-items:flex-end;justify-content:center}
 .modal .panel{width:100%;max-width:620px;border-radius:18px 18px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.gate{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+.gate .panel{max-width:460px;margin:0 auto}
+.gate h2{font:700 1.3rem var(--display)}
+.gate .lock{font-size:2.2rem;line-height:1}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.9rem;z-index:50;max-width:92vw;text-align:center}
 .sync{font-size:.75rem;color:var(--muted)}
 .sync.off{color:var(--bad)}
@@ -195,6 +199,28 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
   </div>
 </div>
 <div class="scan" id="scan" hidden><video id="scanVid" playsinline muted></video><div class="frame"></div><div class="msg" id="scanMsg">เล็งกล้องไปที่ QR บนป้ายชั้นยา</div><button class="close" id="scanClose">ปิดกล้อง</button></div>
+<div class="gate" id="gate" hidden>
+  <div class="panel" id="gForm">
+    <div class="lock" aria-hidden="true">🔒</div>
+    <h2>ขอสิทธิ์ใช้งานคลังใน</h2>
+    <p class="note">เครื่องนี้ยังไม่ได้รับอนุญาต กรอกชื่อแล้วกดส่งคำขอ ผู้ดูแลระบบจะได้รับอีเมลและอนุมัติให้ ใช้เวลาไม่นาน</p>
+    <div class="field"><label for="gName">ชื่อ-นามสกุล หรือชื่อเล่นที่ทีมรู้จัก</label><input id="gName" autocomplete="name"></div>
+    <div class="field"><label for="gRole">ตำแหน่ง/หน้าที่</label><input id="gRole" placeholder="พยาบาล, ผู้ช่วย, แม่บ้าน"></div>
+    <div class="field"><label for="gEmail">อีเมล (ไม่บังคับ ใส่แล้วจะได้รับแจ้งเมื่ออนุมัติ)</label><input id="gEmail" type="email" inputmode="email" autocomplete="email"></div>
+    <button class="btn primary" id="gSend">ส่งคำขอ</button>
+  </div>
+  <div class="panel" id="gWait" hidden>
+    <div class="lock" aria-hidden="true">⏳</div>
+    <h2>รอผู้ดูแลอนุมัติ</h2>
+    <p class="note">ส่งคำขอแล้ว เปิดหน้านี้ทิ้งไว้ได้ เมื่ออนุมัติแล้วแอปจะเปิดให้ใช้เอง หรือกลับมาเปิดใหม่ภายหลัง</p>
+    <button class="btn" id="gCheck">ตรวจสอบอีกครั้ง</button>
+  </div>
+  <div class="panel" id="gNo" hidden>
+    <div class="lock" aria-hidden="true">⛔</div>
+    <h2>ไม่ได้รับอนุญาต</h2>
+    <p class="note">เครื่องนี้ไม่ได้รับอนุญาตให้ใช้งาน ถ้าคิดว่าผิดพลาด ติดต่อผู้ดูแลระบบที่บวกหมื้อ</p>
+  </div>
+</div>
 <div class="toast" id="toast" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
@@ -209,18 +235,20 @@ let api = '';
 try{const p=new URLSearchParams(location.search).get('api');if(p){LS.set('st.api',p);history.replaceState(null,'',location.pathname+location.hash)}}catch(e){}
 api = LS.get('st.api','') || API_URL;
 let dev = LS.get('st.dev',''); if(!dev){dev=Math.random().toString(36).slice(2,8).toUpperCase();LS.set('st.dev',dev)}
+let tok = LS.get('st.tok',''); if(!/^[a-f0-9]{32}$/.test(tok)){const a=new Uint8Array(16);crypto.getRandomValues(a);tok=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');LS.set('st.tok',tok)}
 let me = LS.get('st.me',''), pin = LS.get('st.pin','');
 let state = LS.get('st.cache', null), lastSync = LS.get('st.cacheAt', 0);
 let pending = LS.get('st.pending', []);
 let tab='all', query='', cur=null, qty=1, mode='receive', expr='', walk=null, lastMove=null, busy=false;
 
 /* ---------- server ---------- */
-async function get(){const r=await fetch(api+'?a=all&t='+Date.now());const j=await r.json();if(!j.ok)throw new Error(j.error||'โหลดไม่ได้');return j}
-async function post(body){const r=await fetch(api,{method:'POST',body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(j.error||'บันทึกไม่ได้');return j}
+function denied(j){if(j&&j.code==='unapproved'){showGate();throw new Error('unapproved')}}
+async function get(){const r=await fetch(api+'?a=all&tok='+tok+'&t='+Date.now());const j=await r.json();denied(j);if(!j.ok)throw new Error(j.error||'โหลดไม่ได้');hideGate();return j}
+async function post(body){const r=await fetch(api,{method:'POST',body:JSON.stringify(Object.assign({},body,{tok}))});const j=await r.json();denied(j);if(!j.ok)throw new Error(j.error||'บันทึกไม่ได้');return j}
 function apply(s){if(!s)return;state=s;lastSync=Date.now();LS.set('st.cache',s);LS.set('st.cacheAt',lastSync);renderAll()}
 async function refresh(){
   if(!api)return;
-  try{apply(await get());setSync(true)}catch(e){setSync(false)}
+  try{apply(await get());setSync(true)}catch(e){if(e.message==='unapproved')return;setSync(false)}
   flushPending();
 }
 function setSync(ok){const el=$('sync');
@@ -390,7 +418,7 @@ function setMode(m){mode=m;[...$('seg').children].forEach(b=>b.setAttribute('ari
 $('seg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
 async function loadHubExp(it){
   $('rExp').value='';$('rExpNote').textContent='กำลังดึงวันหมดอายุจากคลังบวกหมื้อ…';
-  try{const r=await fetch(api+'?a=hubexp&n='+encodeURIComponent(it.n));const j=await r.json();
+  try{const r=await fetch(api+'?a=hubexp&tok='+tok+'&n='+encodeURIComponent(it.n));const j=await r.json();
     if(cur&&cur.c===it.c){$('rExp').value=j.exp||'';$('rExpNote').textContent=j.exp?'ดึงจากล็อตที่หมดอายุเร็วสุดของบวกหมื้อ ถ้าบนกล่องไม่ตรงให้แก้':'บวกหมื้อไม่มีข้อมูลวันหมดอายุของยาตัวนี้ ให้ดูจากกล่องแล้วใส่เอง'}}
   catch(e){$('rExpNote').textContent='ดึงวันหมดอายุไม่ได้ ให้ดูจากกล่องแล้วใส่เอง'}
 }
@@ -463,6 +491,32 @@ async function startScan(){
 function stopScan(){clearTimeout(scanTimer);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('scan').hidden=true}
 $('scanBtn').onclick=startScan;$('scanClose').onclick=stopScan;
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'&&scanStream)stopScan()});
+
+/* ---------- access gate ---------- */
+let gatePoll=null;
+function gateView(v){['gForm','gWait','gNo'].forEach(id=>$(id).hidden=id!==v)}
+async function gateStatus(){try{const r=await fetch(api+'?a=status&tok='+tok+'&t='+Date.now());const j=await r.json();return j.status||'none'}catch(e){return 'offline'}}
+async function showGate(){
+  state=null;try{localStorage.removeItem('st.cache')}catch(e){}
+  if(!$('gate').hidden&&gatePoll)return;
+  $('gate').hidden=false;if(cur)closeCard();
+  $('gName').value=me||'';
+  const st=await gateStatus();
+  if(st==='pending'){gateView('gWait');pollGate()}else if(st==='rejected')gateView('gNo');else if(st==='approved'){hideGate();refresh()}else gateView('gForm');
+}
+function hideGate(){$('gate').hidden=true;clearInterval(gatePoll);gatePoll=null}
+function pollGate(){clearInterval(gatePoll);gatePoll=setInterval(async()=>{const st=await gateStatus();if(st==='approved'){hideGate();toast('ได้รับอนุมัติแล้ว');refresh()}else if(st==='rejected'){clearInterval(gatePoll);gateView('gNo')}},10000)}
+$('gSend').onclick=async()=>{
+  const name=$('gName').value.trim();if(!name){toast('ใส่ชื่อก่อนส่งคำขอ');$('gName').focus();return}
+  $('gSend').disabled=true;
+  try{const r=await fetch(api,{method:'POST',body:JSON.stringify({a:'register',tok,name,role:$('gRole').value.trim(),email:$('gEmail').value.trim(),ua:navigator.userAgent})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error);
+    if(!me){me=name;LS.set('st.me',me);renderMe()}
+    if(j.status==='approved'){hideGate();refresh()}else if(j.status==='rejected')gateView('gNo');else{gateView('gWait');pollGate()}}
+  catch(e){toast(/fetch|Network|Load failed/i.test(e.message)?'ไม่มีเน็ต ลองใหม่อีกครั้ง':e.message)}
+  finally{$('gSend').disabled=false}
+};
+$('gCheck').onclick=async()=>{const st=await gateStatus();if(st==='approved'){hideGate();toast('ได้รับอนุมัติแล้ว');refresh()}else toast(st==='offline'?'ไม่มีเน็ต':'ยังรออนุมัติอยู่')};
 
 /* ---------- start ---------- */
 function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3}$/.test(c))openCard(c)}

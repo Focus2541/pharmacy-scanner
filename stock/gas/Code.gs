@@ -17,6 +17,7 @@ const DEFAULTS = {
   HUB_ID: '1GTSOjQmz3LiAY5UgrxiDEFvU15IPWLkvF2NclxEFW0k',
 };
 const TZ = 'Asia/Bangkok';
+const DENY = { ok: false, code: 'unapproved', error: 'เครื่องนี้ยังไม่ได้รับอนุญาตให้ใช้งาน' };
 
 /* ===================== ติดตั้งครั้งแรก ===================== */
 
@@ -46,6 +47,7 @@ function setup() {
   }
   const it = mk(SHEET.items, ITEM_HEADER);
   if (it.getLastRow() === 1) writeItems_(it);
+  try { accessSettings_(); devSheet_(); } catch (_) {}
   mk(SHEET.lots, ['lot_id', 'รหัส', 'ชื่อยา', 'วันหมดอายุ', 'รับเข้า', 'คงเหลือ', 'วันที่รับ']);
   mk(SHEET.moves, ['move_id', 'เวลา', 'ประเภท', 'รหัส', 'ชื่อยา', 'จำนวน', 'ก่อน', 'หลัง', 'วันหมดอายุ', 'ผู้ทำ', 'เครื่อง', 'หมายเหตุ', 'ตัดจากล็อต']);
   const sm = mk(SHEET.summary, ['รหัส', 'ชื่อยา', 'คงเหลือ', 'หมดอายุเร็วสุด']);
@@ -88,6 +90,9 @@ function resetItems() {
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
+    if (p.a === 'approve' || p.a === 'reject') return decide_(p);
+    if (p.a === 'status') return json({ ok: true, status: devStatus_(p.tok) });
+    if (p.a && !isApproved_(p.tok)) return json(DENY);
     if (p.a === 'all') return json(getAll());
     if (p.a === 'hubexp') return json({ ok: true, exp: hubExpiry(p.n || '') });
     if (p.a === 'usage') return json(getUsage(Number(p.days) || 90));
@@ -100,6 +105,12 @@ function doGet(e) {
 function doPost(e) {
   let b = {};
   try { b = JSON.parse(e.postData.contents || '{}'); } catch (_) { return json({ ok: false, error: 'ข้อมูลไม่ถูกต้อง' }); }
+  if (b.a === 'register') {
+    const lk = LockService.getScriptLock();
+    if (!lk.tryLock(15000)) return json({ ok: false, error: 'ระบบไม่ว่าง ลองกดอีกครั้ง' });
+    try { return json(register_(b)); } catch (err) { return json({ ok: false, error: String(err && err.message || err) }); } finally { lk.releaseLock(); }
+  }
+  if (!isApproved_(b.tok)) return json(DENY);
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) return json({ ok: false, error: 'ระบบกำลังบันทึกของคนอื่น ลองกดอีกครั้ง' });
   try {
