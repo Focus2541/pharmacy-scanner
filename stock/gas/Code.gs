@@ -76,7 +76,8 @@ function resetItems() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const lots = ss.getSheetByName(SHEET.lots);
   if (lots && lots.getLastRow() > 1) throw new Error('มีข้อมูลรับเข้าในแท็บล็อตแล้ว ถ้าต้องการเริ่มใหม่จริง ให้ลบแถวข้อมูลในแท็บล็อตและประวัติก่อน แล้วรันอีกครั้ง');
-  const sh = ss.getSheetByName(SHEET.items);
+  let sh = ss.getSheetByName(SHEET.items);
+  if (!sh) { setup(); return; }
   sh.clear();
   writeItems_(sh);
   Logger.log('ตั้งรายการยาใหม่ ' + SEED_ITEMS.length + ' รายการแล้ว');
