@@ -25,6 +25,14 @@ function dashData_(db, mv, now) {
     if (it.has && (it.b <= 0 || (it.min > 0 && it.b <= it.min))) low.push({ name: it.t || it.n, en: it.n, b: it.b, u: it.u, min: it.min, pm: use30[it.c] || 0 });
   });
   exp.sort((a, b) => a.d - b.d);
+  const lowSet = new Set();
+  s.items.forEach(it => { if (it.has && (it.b <= 0 || (it.min > 0 && it.b <= it.min))) lowSet.add(it.c); });
+  const stock = s.items.filter(it => it.has && it.b > 0).map(it => {
+    const near = it.lots.filter(([e, q]) => e && q > 0).map(([e]) => e).sort()[0] || '';
+    const dd = near ? days(near) : 9999;
+    const st = dd < 0 ? 'หมดอายุ' : dd <= 90 ? 'ใกล้หมดอายุ' : lowSet.has(it.c) ? 'ใกล้หมด' : 'ปกติ';
+    return { c: it.c, name: it.t || it.n, en: it.n, b: it.b, u: it.u, exp: near, st, sh: it.s };
+  }).sort((a, b) => (a.sh || '').localeCompare(b.sh || '', 'th') || a.c.localeCompare(b.c));
   low.sort((a, b) => a.b - b.b || b.pm - a.pm);
   const isToday = t => Utilities.formatDate(new Date(t), TZ, 'yyyy-MM-dd') === today;
   const daily = [];
@@ -37,14 +45,15 @@ function dashData_(db, mv, now) {
   const who = {};
   takes.filter(m => new Date(m.time).getTime() >= since(7)).forEach(m => { const k = m.by || '(ไม่ระบุชื่อ)'; who[k] = (who[k] || 0) + 1; });
   const people = Object.keys(who).map(k => [k, who[k]]).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const recent = mv.slice(-10).reverse().map(m => [m.time, m.type, nameOf[m.code] || m.name, m.qty, m.by, m.note]);
+  const unitOf = {}; s.items.forEach(it => { unitOf[it.c] = it.u; });
+  const recent = mv.slice(-12).reverse().map(m => [m.time, m.type, nameOf[m.code] || m.name, m.qty, m.by, m.note, unitOf[m.code] || '']);
   return {
     facility: s.facility, today,
     kpi: {
       stocked, expired: exp.filter(x => x.d < 0).length, exp90: exp.filter(x => x.d >= 0 && x.d <= 90).length, exp180: exp.filter(x => x.d > 90).length,
       low: low.length, takesToday: takes.filter(m => isToday(m.time)).length, value,
     },
-    exp, low, daily, top, people, recent,
+    exp, low, daily, top, people, recent, stock,
   };
 }
 
@@ -177,4 +186,16 @@ function installDashboard() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'refreshDashboard').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('refreshDashboard').timeBased().everyHours(1).create();
   refreshDashboard();
+}
+
+/* ข้อมูลสำหรับหน้าแดชบอร์ดบนเว็บ (dashboard.html) */
+function getDash_() {
+  const now = new Date();
+  const real = loadDb();
+  const demo = !real.lots.length;
+  const src = demo ? demoDb_(real, now) : { db: real, mv: readMoves_() };
+  const D = dashData_(src.db, src.mv, now);
+  const TH_DAY = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  D.week = D.daily.slice(-7).map((x, i) => [TH_DAY[new Date(now.getTime() - (6 - i) * 864e5).getDay()], x[1], x[0]]);
+  return Object.assign({ ok: true, demo, at: now.toISOString() }, D);
 }

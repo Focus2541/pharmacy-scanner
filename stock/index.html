@@ -341,7 +341,7 @@ function renderTabs(){
   const c=counts();
   const T=[['all','ทั้งหมด',c.all],['exp','ใกล้หมดอายุ',c.exp],['low','ใกล้หมด/หมด',c.low],['hist','ใครหยิบอะไร',null]];
   if(c.neg)T.splice(1,0,['neg','ต้องนับใหม่',c.neg]);
-  if(pin)T.push(['walk','เดินนับตามชั้น',null],['req','ใบเบิก',null]);
+  if(pin)T.push(['walk','เดินนับตามชั้น',null],['req','ใบเบิก',null],['dash','แดชบอร์ด',null]);
   $('tabs').innerHTML=T.map(([k,l,n])=>`<button data-t="${k}" aria-pressed="${tab===k&&!query}">${l}${n!==null?` <span class="n ${k==='exp'||k==='neg'?'hot':''}">${n}</span>`:''}</button>`).join('');
 }
 function rowHTML(it){
@@ -377,7 +377,7 @@ function renderView(){
   v.innerHTML=head+`<div class="list">${list.slice(0,LIM).map(rowHTML).join('')||`<div class="more">${query?'ไม่พบยา ลองพิมพ์สั้นลง':'ไม่มีรายการ'}</div>`}${list.length>LIM?`<div class="more">แสดง ${LIM} จาก ${list.length} พิมพ์ค้นหาเพื่อหาตัวที่เหลือ</div>`:''}</div>`;
 }
 $('view').addEventListener('click',e=>{const r=e.target.closest('.row[data-c]');if(r)openCard(r.dataset.c)});
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.t==='req'){location.href='requisition.html';return}tab=b.dataset.t;query='';$('q').value='';walk=null;renderTabs();renderView();refresh()});
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.t==='req'){location.href='requisition.html';return}if(b.dataset.t==='dash'){location.href='dashboard.html';return}tab=b.dataset.t;query='';$('q').value='';walk=null;renderTabs();renderView();refresh()});
 $('q').addEventListener('input',e=>{query=e.target.value.trim();renderTabs();renderView()});
 
 /* ---------- walk count (admin) ---------- */
