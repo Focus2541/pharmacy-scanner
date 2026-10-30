@@ -48,6 +48,32 @@ function dashData_(db, mv, now) {
   };
 }
 
+
+/* ข้อมูลตัวอย่าง: ใช้เฉพาะตอนยังไม่เคยรับเข้ายาเลย (ไม่บันทึกลงชีต) */
+function demoDb_(db, now) {
+  const mins = { P100: 3, P128: 4, P148: 4, P077: 2, P090: 2, P146: 3, P039: 3 };
+  const d = { settings: db.settings, items: db.items.map(i => Object.assign({}, i, mins[i.code] ? { min: mins[i.code] } : {})),
+    lots: [], moves: [], newLots: [], newMoves: [], dirtyLots: {}, dirtyMoves: {}, hubExp: () => '' };
+  const ok = c => d.items.some(i => i.code === c);
+  const day = n => new Date(now.getTime() + n * 864e5);
+  const ymd = n => Utilities.formatDate(day(n), TZ, 'yyyy-MM-dd');
+  [['P100', 8, 400], ['P100', 2, 60], ['P128', 6, 220], ['P148', 10, 500], ['P077', 4, 150], ['P090', 5, 45], ['P001', 10, 300],
+   ['P003', 8, -10], ['P071', 4, 600], ['P039', 6, 120], ['P146', 5, 380], ['P099', 3, 250], ['P134', 4, 700], ['P168', 6, 800], ['P013', 3, 25]]
+    .filter(x => ok(x[0])).forEach(([c, q, e]) => Core.receive(d, { c, q, exp: ymd(e), by: 'ตัวอย่าง' }, day(-20)));
+  const people = ['พี่แดง', 'น้องฝน', 'ป้าศรี', 'พี่นก'], codes = ['P100', 'P100', 'P128', 'P148', 'P148', 'P077', 'P039', 'P146', 'P168', 'P134', 'P099'].filter(ok);
+  let k = 0;
+  for (let back = 13; back >= 0; back--) {
+    const n = 1 + ((back * 7) % 5);
+    for (let j = 0; j < n; j++) {
+      let t = day(-back); t.setHours(9 + j, 10, 0, 0);
+      if (t > now) t = new Date(now.getTime() - (j + 1) * 25 * 60e3);   // วันนี้: ย้อนจากตอนนี้
+      Core.take(d, { c: codes[k % codes.length], q: 1, by: people[(k + 1) % 4] }, t); k++;
+    }
+  }
+  const mv = d.moves.map(m => ({ time: m.time, type: m.type, code: m.code, name: m.name, qty: m.qty, by: m.by, note: m.note }));
+  return { db: d, mv };
+}
+
 function readMoves_() {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.moves);
   const n = sh.getLastRow() - 1;
@@ -62,7 +88,10 @@ function readMoves_() {
 function refreshDashboard() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const now = new Date();
-  const D = dashData_(loadDb(), readMoves_(), now);
+  const real = loadDb();
+  const demo = !real.lots.length;                 // ยังไม่เคยรับเข้า → โชว์ตัวอย่าง
+  const src = demo ? demoDb_(real, now) : { db: real, mv: readMoves_() };
+  const D = dashData_(src.db, src.mv, now);
   let sh = ss.getSheetByName(DASH);
   if (!sh) { sh = ss.insertSheet(DASH, 0); }
   sh.clear(); sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart();
@@ -74,6 +103,10 @@ function refreshDashboard() {
   const fmtDate = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + (Number(iso.slice(0, 4)) + 543 - 2500) : '';
   sh.getRange('B1').setValue(`แดชบอร์ดคลังใน ${D.facility}`).setFontSize(18).setFontWeight('bold').setFontColor(ink);
   sh.getRange('B2').setValue(`อัปเดต ${Utilities.formatDate(now, TZ, 'dd/MM/yyyy HH:mm')} น. · อัปเดตเองเมื่อเปิดชีตและทุก 1 ชั่วโมง`).setFontColor(muted).setFontSize(9);
+  if (demo) {
+    sh.getRange('G1:M2').merge().setValue('ตัวอย่าง: ตัวเลขในหน้านี้เป็นข้อมูลสมมุติ\nจะเปลี่ยนเป็นยอดจริงเองเมื่อรับเข้ายาครั้งแรกในแอป')
+      .setBackground('#fbeedd').setFontColor('#8a4a06').setFontWeight('bold').setFontSize(10).setWrap(true).setVerticalAlignment('middle').setHorizontalAlignment('center');
+  }
   sh.setRowHeight(1, 34);
   // การ์ดตัวเลข 6 ใบ: ป้าย (แถว 4) ตัวเลข (แถว 5)
   const tiles = [
