@@ -41,8 +41,9 @@ main{padding:18px 26px 40px;min-width:0}
 .crumb{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)}
 .crumb i{width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-block}
 .tright{display:flex;gap:8px;align-items:center}
-.datep{position:relative;cursor:pointer}.datep input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0}
-.datep:hover{border-color:var(--accent);color:var(--accent)}
+.datep{gap:2px;padding:3px 6px}.datep input{border:0;background:transparent;font:inherit;font-size:.9rem;color:var(--ink);padding:3px 2px;cursor:pointer;min-width:0}
+.datep button{border:0;background:none;font:600 1.1rem var(--body);color:var(--muted);cursor:pointer;padding:0 6px;border-radius:8px}.datep button:hover:not(:disabled){background:var(--soft);color:var(--accent)}.datep button:disabled{opacity:.3;cursor:default}
+.datep:focus-within{border-color:var(--accent)}
 .past{background:var(--blue-soft);color:var(--blue);border-radius:12px;padding:10px 14px;font-weight:600;margin-bottom:14px}
 .pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}
 button.pill{cursor:pointer;font:inherit;font-size:.85rem}
@@ -141,7 +142,7 @@ td .en{display:block;font-size:.72rem;color:var(--muted)}
   <main>
     <div class="topbar">
       <div class="crumb"><i></i><span id="crumb">คลังใน รพ.สต.บ้านเป้า</span></div>
-      <div class="tright"><label class="pill datep" title="เลือกวันที่เพื่อดูย้อนหลัง">📅 <span id="today"></span><input type="date" id="pick" aria-label="เลือกวันที่"></label><button class="pill" id="back" hidden>กลับมาวันนี้</button><button class="pill" id="reload" title="โหลดใหม่">↻ รีเฟรช</button></div>
+      <div class="tright"><div class="pill datep" title="เลือกวันที่เพื่อดูย้อนหลัง"><button id="prev" aria-label="วันก่อนหน้า">‹</button><span class="cal">📅</span><input type="date" id="pick" aria-label="เลือกวันที่"><button id="next" aria-label="วันถัดไป">›</button></div><button class="pill" id="back" hidden>กลับมาวันนี้</button><button class="pill" id="reload" title="โหลดใหม่">↻ รีเฟรช</button></div>
     </div>
     <h1 id="title">แดชบอร์ดคลังยา</h1>
     <div class="sub" id="sub">กำลังโหลด…</div>
@@ -185,8 +186,7 @@ function render(D){
   const at=new Date(D.at);
   $('sub').textContent=D.past?`ข้อมูลย้อนหลัง ณ สิ้นวันที่ ${thDate(D.date)}`:`ข้อมูล ณ ${thDate(D.today)} เวลา ${at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น. · อัปเดตอัตโนมัติทุก 5 นาที`;
   $('pastBox').hidden=!D.past;$('pastBox').textContent=D.past?`กำลังดูข้อมูลย้อนหลัง: ยอดคงเหลือและรายการ ณ สิ้นวันที่ ${thDate(D.date)} · กด "กลับมาวันนี้" เพื่อดูยอดปัจจุบัน`:'';
-  $('back').hidden=!D.past;$('today').textContent=thDate(D.date);
-  const pk=$('pick');pk.max=localISO();if(D.first)pk.min=D.first;pk.value=D.date;
+  $('back').hidden=!D.past;  const pk=$('pick');pk.max=localISO();if(D.first)pk.min=D.first;pk.value=D.date;$('next').disabled=!D.past;$('prev').disabled=!!(D.first&&D.date<=D.first);
   $('demo').hidden=!D.demo;
   const K=D.kpi;
   const kp=`<div class="kpis">
@@ -221,7 +221,11 @@ async function load(){
   }catch(e){$('body').style.opacity=1;$('err').hidden=false;$('err').textContent='โหลดข้อมูลไม่ได้: '+e.message;if(!$('body').querySelector('.kpis'))$('body').innerHTML=''}
 }
 $('reload').onclick=()=>load();
-$('pick').onchange=e=>{const v=e.target.value;sel=(v&&v<localISO())?v:'';load()};
+const go=v=>{sel=(v&&v<localISO())?v:'';load()};
+$('pick').onchange=e=>go(e.target.value);
+$('pick').onclick=e=>{try{e.target.showPicker()}catch(_){}};   // เปิดปฏิทินเมื่อกดตรงไหนก็ได้ (ถ้าเบราว์เซอร์อนุญาต)
+const shift=n=>{const d=new Date(($('pick').value||localISO())+'T12:00:00');d.setDate(d.getDate()+n);const v=d.toISOString().slice(0,10);if($('pick').min&&v<$('pick').min)return;go(v)};
+$('prev').onclick=()=>shift(-1);$('next').onclick=()=>shift(1);
 $('back').onclick=()=>{sel='';load()};
 load();setInterval(()=>{if(!sel&&document.visibilityState==='visible')load()},5*60e3);
 </script>
