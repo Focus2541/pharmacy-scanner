@@ -55,8 +55,8 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
 .scan .close{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom,0px));border:0;border-radius:999px;padding:14px 28px;font:600 1rem var(--body);background:#fff;color:#111}
 .search input{flex:1;min-width:0;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:1.02rem}
 .tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
-/* คอมพิวเตอร์ใช้เมาส์เลื่อนแนวนอนไม่สะดวก: ให้แท็บขึ้นบรรทัดใหม่แทน */
-@media (hover:hover) and (pointer:fine),(min-width:700px){.tabs{flex-wrap:wrap;overflow:visible}}
+/* แท็บที่เกินบรรทัด ขึ้นบรรทัดใหม่ เห็นครบทุกปุ่มทั้งมือถือและคอม */
+.tabs{flex-wrap:wrap;overflow:visible}
 .tabs button{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.86rem;white-space:nowrap}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .tabs .n{font-weight:600}
