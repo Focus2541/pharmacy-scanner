@@ -98,13 +98,14 @@ td .en{display:block;font-size:.72rem;color:var(--muted)}
 .bars .track{height:10px;border-radius:999px;background:#edf3f1;overflow:hidden}
 .bars .fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
 /* column chart */
-.chart{display:flex;align-items:flex-end;gap:8px;height:230px;padding:14px 4px 0;border-bottom:1px solid var(--line)}
+.chart{display:flex;align-items:flex-end;gap:8px;height:300px;padding:14px 4px 0;border-bottom:1px solid var(--line)}
 .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
 .col .v{font-size:.78rem;font-weight:600;margin-bottom:3px}
 .col .b{width:72%;max-width:34px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--accent2),var(--accent));min-height:2px}
 .col.today .b{background:linear-gradient(180deg,#26c4a5,#0b6a5a)}
 .xl{display:flex;gap:8px;padding:5px 4px 0}
-.xl span{flex:1;text-align:center;font-size:.7rem;color:var(--muted);min-width:0}
+.xl span{flex:1;text-align:center;font-size:.74rem;color:var(--muted);min-width:0;line-height:1.25}
+.xl em{font-style:normal;font-size:.68rem}
 .err{background:var(--red-soft);color:var(--red);border-radius:12px;padding:12px 14px;margin-bottom:14px}
 .skel{color:var(--muted);padding:40px;text-align:center}
 @media (max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}.r3{grid-template-columns:1fr 1fr}.r3 .wk{grid-column:1/-1}}
@@ -118,7 +119,7 @@ td .en{display:block;font-size:.72rem;color:var(--muted)}
   .topbar .crumb{display:none}
   .brand b{white-space:nowrap}.brand div br{display:none}
   td .en,td.i,th.i{display:none}
-  .xl span:nth-child(even){visibility:hidden}.chart{gap:4px}.col .v{font-size:.68rem}
+.chart{gap:4px}.col .v{font-size:.68rem}
   table{font-size:.8rem}
 }
 @media print{.side,.topbar{display:none}.app{grid-template-columns:1fr}body{background:#fff}.scroll{max-height:none}}
@@ -190,7 +191,7 @@ function render(D){
   const tmax=D.top.length?D.top[0][1]:1;
   const top=D.top.length?`<table class="bars"><tr><th class="i">#</th><th>ยา</th><th class="num">จำนวน</th><th></th></tr>${D.top.map((x,i)=>`<tr><td class="i">${i+1}</td><td>${esc(x[0])}</td><td class="num">${fmt(x[1])} ${esc(x[2])}</td><td class="bar"><div class="track"><div class="fill" style="width:${Math.max(4,x[1]/tmax*100)}%"></div></div></td></tr>`).join('')}</table>`:'<div class="empty">ยังไม่มีการหยิบใน 30 วัน</div>';
   const dmax=Math.max(1,...D.daily.map(x=>x[1]));
-  const chart=`<div class="chart">${D.daily.map((x,i)=>`<div class="col ${i===D.daily.length-1?'today':''}"><span class="v">${x[1]}</span><div class="b" style="height:${x[1]/dmax*82}%"></div></div>`).join('')}</div><div class="xl">${D.daily.map(x=>`<span>${x[0]}</span>`).join('')}</div>`;
+  const chart=`<div class="chart">${D.daily.map((x,i)=>`<div class="col ${i===D.daily.length-1?'today':''}"><span class="v">${x[1]}</span><div class="b" style="height:${x[1]/dmax*82}%"></div></div>`).join('')}</div><div class="xl">${D.daily.map((x,i)=>{const [dd,mm]=x[0].split('/').map(Number);return `<span>${dd}${i===0||dd===1?`<br><em>${TH_M[mm-1]}</em>`:''}</span>`}).join('')}</div>`;
   const exp=D.exp.length?`<div class="scroll"><table><tr><th>ยา</th><th>วันหมดอายุ</th><th class="num">เหลือ</th><th>สถานะ</th></tr>${D.exp.map(x=>`<tr><td>${esc(x.name)}</td><td class="d">${thDate(x.exp)}</td><td class="num">${fmt(x.q)} ${esc(x.u)}</td><td><span class="tag ${x.d<0?'t-red':x.d<=90?'t-or':'t-am'}">${x.d<0?'หมดอายุแล้ว':x.d<=90?`อีก ${x.d} วัน`:`อีก ${Math.round(x.d/30)} เดือน`}</span></td></tr>`).join('')}</table></div>`:'<div class="empty">ไม่มียาหมดอายุภายใน 6 เดือน</div>';
   const recent=D.recent.length?`<div class="scroll"><table><tr><th>เวลา</th><th>ประเภท</th><th>ยา</th><th class="num">จำนวน</th><th>ผู้ทำ</th></tr>${D.recent.map(r=>{const t=new Date(r[0]);return `<tr><td style="white-space:nowrap">${t.getDate()} ${TH_M[t.getMonth()]} ${t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</td><td><span class="tag ${r[1]==='หยิบ'?'t-ok':r[1]==='รับเข้า'?'t-am':r[1]==='ตัดจำหน่าย'?'t-red':'t-or'}">${esc(r[1])}</span></td><td>${esc(r[2])}${r[5]?`<span class="en">${esc(r[5])}</span>`:''}</td><td class="num">${fmt(r[3])} ${esc(r[6]||'')}</td><td>${esc(r[4]||'-')}</td></tr>`}).join('')}</table></div>`:'<div class="empty">ยังไม่มีรายการ</div>';
   const who=D.people.length?D.people.map(p=>`<span class="tag t-ok" style="margin:2px">${esc(p[0])} · ${p[1]}</span>`).join(''):'';

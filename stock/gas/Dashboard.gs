@@ -1,7 +1,8 @@
 /**
- * แท็บ "แดชบอร์ด" ในชีต: ภาพรวมคลังใน
- * อัปเดตเองทุกครั้งที่เปิดชีต และทุก 1 ชั่วโมง (กดรัน installDashboard ครั้งเดียว)
- * หรือกดเมนู คลังใน → รีเฟรชแดชบอร์ด
+ * แดชบอร์ด: เมนู คลังใน → เปิดแดชบอร์ด (หน้าต่างในชีต ใช้ไฟล์ DashboardView.html)
+ * และหน้าเว็บ dashboard.html ในแอป (เรียก ?a=dash)
+ * refreshDashboard() = แท็บแดชบอร์ดแบบตารางรุ่นเก่า เลิกใช้แล้ว เก็บไว้เผื่ออยากได้คืน
+ * ลบแท็บเก่าและตัวตั้งเวลา: กดรัน removeSheetDashboard() ครั้งเดียว
  */
 const DASH = 'แดชบอร์ด';
 
@@ -207,3 +208,11 @@ function openDashboard() {
 }
 /* เรียกจากหน้าต่างแดชบอร์ด */
 function dashboardData() { return getDash_(); }
+
+/* ลบแท็บ "แดชบอร์ด" แบบตารางและตัวตั้งเวลาอัปเดตรายชั่วโมง (ใช้หน้าต่างแดชบอร์ดแทน) */
+function removeSheetDashboard() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'refreshDashboard').forEach(t => ScriptApp.deleteTrigger(t));
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(DASH);
+  if (sh) ss.deleteSheet(sh);
+  Logger.log('ลบแท็บแดชบอร์ดเก่าแล้ว ใช้เมนู คลังใน → เปิดแดชบอร์ด แทน');
+}
