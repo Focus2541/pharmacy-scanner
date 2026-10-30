@@ -42,6 +42,9 @@ main{padding:18px 26px 40px;min-width:0}
 .crumb{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--muted)}
 .crumb i{width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-block}
 .tright{display:flex;gap:8px;align-items:center}
+.datep{position:relative;cursor:pointer}.datep input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:0}
+.datep:hover{border-color:var(--accent);color:var(--accent)}
+.past{background:var(--blue-soft);color:var(--blue);border-radius:12px;padding:10px 14px;font-weight:600;margin-bottom:14px}
 .pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap}
 button.pill{cursor:pointer;font:inherit;font-size:.85rem}
 button.pill:hover{border-color:var(--accent);color:var(--accent)}
@@ -139,11 +142,12 @@ td .en{display:block;font-size:.72rem;color:var(--muted)}
   <main>
     <div class="topbar">
       <div class="crumb"><i></i><span id="crumb">คลังใน รพ.สต.บ้านเป้า</span></div>
-      <div class="tright"><span class="pill" id="today"></span><button class="pill" id="reload" title="โหลดใหม่">↻ รีเฟรช</button></div>
+      <div class="tright"><label class="pill datep" title="เลือกวันที่เพื่อดูย้อนหลัง">📅 <span id="today"></span><input type="date" id="pick" aria-label="เลือกวันที่"></label><button class="pill" id="back" hidden>กลับมาวันนี้</button><button class="pill" id="reload" title="โหลดใหม่">↻ รีเฟรช</button></div>
     </div>
     <h1 id="title">แดชบอร์ดคลังยา</h1>
     <div class="sub" id="sub">กำลังโหลด…</div>
     <div class="err" id="err" hidden></div>
+    <div class="past" id="pastBox" hidden></div>
     <div class="demo" id="demo" hidden>ตัวอย่าง: ตัวเลขในหน้านี้เป็นข้อมูลสมมุติ จะเปลี่ยนเป็นยอดจริงเองเมื่อรับเข้ายาครั้งแรกในแอป</div>
     <div id="body"><div class="skel">กำลังโหลดข้อมูล…</div></div>
   </main>
@@ -170,12 +174,18 @@ function kpi(cls,icon,label,v,unit,extra){return `<div class="kpi ${cls}${v?'':'
 function panel(icon,title,n,inner,cls=''){return `<section class="panel ${cls}"><div class="ph">${icon}<h2>${title}</h2>${n!=null?`<span class="n">${n}</span>`:''}</div>${inner}</section>`}
 const stTag={'ปกติ':'t-ok','ใกล้หมด':'t-am','ใกล้หมดอายุ':'t-or','หมดอายุ':'t-red'};
 const short=n=>String(n||'').replace(/\s*·\s*(กล่อง|กระปุก|ห่อ|ขวด)ละ.*$/,'');
+let sel='';   // วันที่เลือกดูย้อนหลัง ('' = วันนี้)
+function localISO(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
 function render(D){
+  $('body').style.opacity=1;
   ['stock','low','exp'].forEach(k=>D[k].forEach(x=>x.name=short(x.name)));D.top.forEach(x=>x[0]=short(x[0]));D.recent.forEach(r=>r[2]=short(r[2]));
   const fac=D.facility||'';
   $('sFac').textContent=fac;$('crumb').textContent='คลังใน '+fac;$('title').textContent='แดชบอร์ดคลังยา '+fac;
   const at=new Date(D.at);
-  $('sub').textContent=`ข้อมูล ณ ${thDate(D.today)} เวลา ${at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น. · อัปเดตอัตโนมัติทุก 5 นาที`;
+  $('sub').textContent=D.past?`ข้อมูลย้อนหลัง ณ สิ้นวันที่ ${thDate(D.date)}`:`ข้อมูล ณ ${thDate(D.today)} เวลา ${at.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น. · อัปเดตอัตโนมัติทุก 5 นาที`;
+  $('pastBox').hidden=!D.past;$('pastBox').textContent=D.past?`กำลังดูข้อมูลย้อนหลัง: ยอดคงเหลือและรายการ ณ สิ้นวันที่ ${thDate(D.date)} · กด "กลับมาวันนี้" เพื่อดูยอดปัจจุบัน`:'';
+  $('back').hidden=!D.past;$('today').textContent=thDate(D.date);
+  const pk=$('pick');pk.max=localISO();if(D.first)pk.min=D.first;pk.value=D.date;
   $('demo').hidden=!D.demo;
   const K=D.kpi;
   const kp=`<div class="kpis">
@@ -184,10 +194,10 @@ function render(D){
     ${kpi('k3',I.clock,'หมดอายุใน 3 เดือน',K.exp90,'ล็อต','')}
     ${kpi('k4',I.cal,'หมดอายุใน 4–6 เดือน',K.exp180,'ล็อต','')}
     ${kpi('k5',I.down,'ใกล้หมด / หมด',K.low,'รายการ',K.low?'ถึงจุดสั่งซื้อแล้ว':'')}
-    ${kpi('k6',I.hand,'หยิบวันนี้',K.takesToday,'ครั้ง','')}</div>`;
+    ${kpi('k6',I.hand,D.past?'หยิบวันนั้น':'หยิบวันนี้',K.takesToday,'ครั้ง','')}</div>`;
   const stock=D.stock.length?`<div class="scroll"><table><tr><th class="i">#</th><th>ยา</th><th class="num">คงเหลือ</th><th>หมดอายุเร็วสุด</th><th>สถานะ</th></tr>${D.stock.map((x,i)=>`<tr><td class="i">${i+1}</td><td>${esc(x.name)}<span class="en">${esc(x.en)}</span></td><td class="num">${fmt(x.b)} ${esc(x.u)}</td><td class="d">${thDate(x.exp)}</td><td><span class="tag ${stTag[x.st]}">${x.st}</span></td></tr>`).join('')}</table></div>`:'<div class="empty">ยังไม่มียาในคลัง</div>';
   const low=D.low.length?`<div class="scroll"><table><tr><th class="i">#</th><th>ยา</th><th class="num">คงเหลือ</th><th class="num">จุดสั่งซื้อ</th><th>สถานะ</th></tr>${D.low.map((x,i)=>`<tr><td class="i">${i+1}</td><td>${esc(x.name)}<span class="en">ใช้ 30 วัน: ${x.pm?fmt(x.pm)+' '+esc(x.u):'-'}</span></td><td class="num">${fmt(Math.max(0,x.b))} ${esc(x.u)}</td><td class="num">${x.min||'-'}</td><td><span class="tag ${x.b<=0?'t-red':'t-am'}">${x.b<=0?'หมด':'ใกล้หมด'}</span></td></tr>`).join('')}</table></div>`:'<div class="empty">ยังไม่มียาที่ถึงจุดสั่งซื้อ</div>';
-  const week=`<div class="week">${D.week.map((w,i)=>`<div class="${i===D.week.length-1?'today':''}"><span>${w[0]}${i===D.week.length-1?' (วันนี้)':''}</span><b>${w[1]}</b></div>`).join('')}</div>`;
+  const week=`<div class="week">${D.week.map((w,i)=>`<div class="${i===D.week.length-1?'today':''}"><span>${w[0]}${i===D.week.length-1?(D.past?' (วันที่เลือก)':' (วันนี้)'):''}</span><b>${w[1]}</b></div>`).join('')}</div>`;
   const tmax=D.top.length?D.top[0][1]:1;
   const top=D.top.length?`<table class="bars"><tr><th class="i">#</th><th>ยา</th><th class="num">จำนวน</th><th></th></tr>${D.top.map((x,i)=>`<tr><td class="i">${i+1}</td><td>${esc(x[0])}</td><td class="num">${fmt(x[1])} ${esc(x[2])}</td><td class="bar"><div class="track"><div class="fill" style="width:${Math.max(4,x[1]/tmax*100)}%"></div></div></td></tr>`).join('')}</table>`:'<div class="empty">ยังไม่มีการหยิบใน 30 วัน</div>';
   const dmax=Math.max(1,...D.daily.map(x=>x[1]));
@@ -202,13 +212,15 @@ function render(D){
 }
 /* ในชีต: ดึงข้อมูลผ่าน google.script.run ไม่ต้องขอสิทธิ์เครื่อง */
 function load(){
-  $('today').textContent='📅 '+new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'});
+  $('body').style.opacity=.5;
   google.script.run.withSuccessHandler(j=>{$('err').hidden=true;render(j)})
-    .withFailureHandler(e=>{$('err').hidden=false;$('err').textContent='โหลดข้อมูลไม่ได้: '+(e&&e.message||e);if(!$('body').querySelector('.kpis'))$('body').innerHTML=''})
-    .dashboardData();
+    .withFailureHandler(e=>{$('body').style.opacity=1;$('err').hidden=false;$('err').textContent='โหลดข้อมูลไม่ได้: '+(e&&e.message||e);if(!$('body').querySelector('.kpis'))$('body').innerHTML=''})
+    .dashboardData(sel);
 }
-$('reload').onclick=load;
-load();setInterval(()=>{if(document.visibilityState==='visible')load()},5*60e3);
+$('reload').onclick=()=>load();
+$('pick').onchange=e=>{const v=e.target.value;sel=(v&&v<localISO())?v:'';load()};
+$('back').onclick=()=>{sel='';load()};
+load();setInterval(()=>{if(!sel&&document.visibilityState==='visible')load()},5*60e3);
 </script>
 </body>
 </html>

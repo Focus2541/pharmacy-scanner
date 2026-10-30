@@ -189,16 +189,59 @@ function installDashboard() {
   refreshDashboard();
 }
 
-/* ข้อมูลสำหรับหน้าแดชบอร์ดบนเว็บ (dashboard.html) */
-function getDash_() {
-  const now = new Date();
+/* ข้อมูลสำหรับหน้าแดชบอร์ดบนเว็บ (dashboard.html) และหน้าต่างในชีต
+   date = 'yyyy-MM-dd' ดูย้อนหลัง ณ สิ้นวันนั้น (เว้นว่าง = ตอนนี้) */
+function getDash_(date) {
+  const nowReal = new Date();
+  const todayIso = Utilities.formatDate(nowReal, TZ, 'yyyy-MM-dd');
+  const past = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) && date < todayIso;
+  const now = past ? new Date(date + 'T23:59:59+07:00') : nowReal;
   const real = loadDb();
   const demo = !real.lots.length;
-  const src = demo ? demoDb_(real, now) : { db: real, mv: readMoves_() };
+  let src;
+  if (demo) src = demoDb_(real, now);
+  else if (past) src = replayDb_(real, now);
+  else src = { db: real, mv: readMoves_() };
   const D = dashData_(src.db, src.mv, now);
   const TH_DAY = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
   D.week = D.daily.slice(-7).map((x, i) => [TH_DAY[new Date(now.getTime() - (6 - i) * 864e5).getDay()], x[1], x[0]]);
-  return Object.assign({ ok: true, demo, at: now.toISOString() }, D);
+  return Object.assign({ ok: true, demo, past, date: Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), at: (past ? now : nowReal).toISOString(), first: firstMoveDate_() }, D);
+}
+
+/* วันแรกที่มีประวัติ (ใช้จำกัดปฏิทินในหน้าแดชบอร์ด) */
+function firstMoveDate_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.moves);
+  if (sh.getLastRow() < 2) return '';
+  const v = sh.getRange(2, 2).getValue();
+  return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : '';
+}
+
+/* สร้างสต๊อก ณ เวลา asOf ใหม่ โดยเล่นประวัติทุกรายการซ้ำตามลำดับ (ไม่แตะชีต) */
+function replayDb_(real, asOf) {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET.moves);
+  const n = sh.getLastRow() - 1;
+  const rows = n > 0 ? sh.getRange(2, 1, n, 13).getValues() : [];
+  const d = { settings: real.settings, items: real.items, lots: [], moves: [], newLots: [], newMoves: [], dirtyLots: {}, dirtyMoves: {}, hubExp: () => '' };
+  const idMap = {};
+  rows.forEach(r => {
+    const t = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    if (!(t instanceof Date) || isNaN(t) || t > asOf) return;
+    const type = String(r[2]), c = String(r[3]), q = Number(r[5]) || 0, exp = toIso(r[8]), by = String(r[9] || ''), note = String(r[11] || '');
+    try {
+      let res = null;
+      if (type === 'รับเข้า') res = Core.receive(d, { c, q, exp, by }, t);
+      else if (type === 'หยิบ') res = Core.take(d, { c, q, by }, t);
+      else if (type === 'นับ') res = Core.count(d, { c, q, by, exp }, t);
+      else if (type === 'ตัดจำหน่าย') res = Core.dispose(d, { c, q, exp, by, reason: note.split(' · ')[0] }, t);
+      else if (type === 'ยกเลิก') {
+        const orig = (/ยกเลิกการหยิบ\s+(\S+)/.exec(note) || [])[1];
+        if (orig && idMap[orig]) res = Core.undo(d, { id: idMap[orig], by }, t);
+      }
+      if (res && res.move) idMap[String(r[0])] = res.move.id;
+    } catch (_) { /* รายการที่เล่นซ้ำไม่ได้ ข้ามไป */ }
+  });
+  const mv = d.moves.map(m => ({ time: m.time, type: m.type, code: m.code, name: m.name, qty: m.qty, by: m.by, note: m.note }));
+  return { db: d, mv };
 }
 
 /* เมนู คลังใน → เปิดแดชบอร์ด: หน้าตาเหมือนหน้าเว็บ เปิดเป็นหน้าต่างในชีต (ต้องมีไฟล์ HTML ชื่อ DashboardView) */
@@ -207,7 +250,7 @@ function openDashboard() {
   SpreadsheetApp.getUi().showModelessDialog(html, 'แดชบอร์ดคลังใน');
 }
 /* เรียกจากหน้าต่างแดชบอร์ด */
-function dashboardData() { return getDash_(); }
+function dashboardData(date) { return getDash_(date); }
 
 /* ลบแท็บ "แดชบอร์ด" แบบตารางและตัวตั้งเวลาอัปเดตรายชั่วโมง (ใช้หน้าต่างแดชบอร์ดแทน) */
 function removeSheetDashboard() {

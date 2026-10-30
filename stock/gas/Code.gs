@@ -94,7 +94,7 @@ function doGet(e) {
     if (p.a === 'all') return json(getAll());
     if (p.a === 'hubexp') return json({ ok: true, exp: hubExpiry(p.n || '') });
     if (p.a === 'usage') return json(getUsage(Number(p.days) || 90));
-    if (p.a === 'dash') return json(getDash_());
+    if (p.a === 'dash') return json(getDash_(p.date));
     return json({ ok: true, msg: 'stock api' });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
