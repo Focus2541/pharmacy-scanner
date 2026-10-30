@@ -199,3 +199,11 @@ function getDash_() {
   D.week = D.daily.slice(-7).map((x, i) => [TH_DAY[new Date(now.getTime() - (6 - i) * 864e5).getDay()], x[1], x[0]]);
   return Object.assign({ ok: true, demo, at: now.toISOString() }, D);
 }
+
+/* เมนู คลังใน → เปิดแดชบอร์ด: หน้าตาเหมือนหน้าเว็บ เปิดเป็นหน้าต่างในชีต (ต้องมีไฟล์ HTML ชื่อ DashboardView) */
+function openDashboard() {
+  const html = HtmlService.createHtmlOutputFromFile('DashboardView').setWidth(1320).setHeight(880);
+  SpreadsheetApp.getUi().showModelessDialog(html, 'แดชบอร์ดคลังใน');
+}
+/* เรียกจากหน้าต่างแดชบอร์ด */
+function dashboardData() { return getDash_(); }

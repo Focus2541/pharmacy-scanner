@@ -17,6 +17,7 @@ const TH_MONTH = ['มกราคม', 'กุมภาพันธ์', 'ม�
 function onOpen() {
   try { refreshDashboard(); } catch (_) {}      // แดชบอร์ดอัปเดตทุกครั้งที่เปิดชีต
   SpreadsheetApp.getUi().createMenu('คลังใน')
+    .addItem('เปิดแดชบอร์ด', 'openDashboard')
     .addItem('รีเฟรชแดชบอร์ด', 'refreshDashboard')
     .addSeparator()
     .addItem('สร้างใบเบิกเดือนนี้', 'makeRequisition')
