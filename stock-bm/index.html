@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f7a68">
+<script>/* โหมดสีที่เลือกไว้ (สว่าง/มืด) ใส่ก่อนวาดหน้า จะได้ไม่กระพริบ */
+try{var t=JSON.parse(localStorage.getItem('bm.theme'));if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>คลังใน</title>
+<meta name="application-name" content="คลังใน">
+<meta name="apple-mobile-web-app-title" content="คลังใน">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: single column app. Home = search + list. Drug card = full-screen sheet opened from QR (#B001). */
+:root{
+  --bg:#f3f6f5; --surface:#fff; --ink:#15302b; --muted:#5d7470; --line:#d6e1de;
+  --accent:#0f7a68; --accent-soft:#e0f1ec; --warn:#b4620a; --warn-soft:#fbeedd; --bad:#b3302b; --bad-soft:#f9e3e1; --key:#e8efed;
+  --display:"Anuphan","IBM Plex Sans Thai",system-ui,sans-serif; --body:"IBM Plex Sans Thai",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1716; --surface:#172321; --ink:#e3eeeb; --muted:#93aaa5; --line:#29403c;
+  --accent:#46c2a8; --accent-soft:#183a33; --warn:#f0a454; --warn-soft:#3a2a17; --bad:#f07b74; --bad-soft:#3d1f1d; --key:#21312e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1716; --surface:#172321; --ink:#e3eeeb; --muted:#93aaa5; --line:#29403c;
+  --accent:#46c2a8; --accent-soft:#183a33; --warn:#f0a454; --warn-soft:#3a2a17; --bad:#f07b74; --bad-soft:#3d1f1d; --key:#21312e; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+input,button{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:620px;margin:0 auto;padding:12px max(16px,env(safe-area-inset-right,0px)) 100px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font:700 1.3rem/1.2 var(--display);margin:0}
+.sub{font-size:.78rem;color:var(--muted)}
+.me{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.85rem;white-space:nowrap}
+.me.admin{border-color:var(--accent);color:var(--accent)}
+.hbtns{display:flex;gap:6px;align-items:center}
+.theme{width:36px;height:36px;flex:none;border:1px solid var(--line);background:var(--surface);border-radius:50%;font-size:1.05rem;line-height:1;padding:0;display:grid;place-items:center}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:6px;display:flex;flex-direction:column;gap:8px}
+.search{display:flex;gap:8px}
+.scanbtn{flex:none;border:0;border-radius:12px;background:var(--accent);color:var(--surface);font:700 1.05rem var(--display);padding:0 18px}
+.scan{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.scan video{width:100%;height:100%;object-fit:cover}
+.scan .frame{position:absolute;width:min(70vw,320px);aspect-ratio:1;border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.scan .msg{position:absolute;top:calc(24px + env(safe-area-inset-top,0px));left:16px;right:16px;text-align:center;color:#fff;font:600 1.1rem var(--display)}
+.scan .close{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom,0px));border:0;border-radius:999px;padding:14px 28px;font:600 1rem var(--body);background:#fff;color:#111}
+.search input{flex:1;min-width:0;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:1.02rem}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+/* แท็บที่เกินบรรทัด ขึ้นบรรทัดใหม่ เห็นครบทุกปุ่มทั้งมือถือและคอม */
+.tabs{flex-wrap:wrap;overflow:visible}
+.tabs button{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.86rem;white-space:nowrap}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tabs .n{font-weight:600}
+.tabs .hot{color:var(--bad)}
+.banner{border-radius:12px;padding:10px 12px;font-size:.88rem;display:flex;gap:8px;align-items:center}
+.banner.bad{background:var(--bad-soft);color:var(--bad)} .banner.warn{background:var(--warn-soft);color:var(--warn)} .banner.info{background:var(--accent-soft);color:var(--accent)}
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.row{display:flex;gap:10px;align-items:center;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;width:100%}
+.row:last-child{border-bottom:0}
+.row:active{background:var(--accent-soft)}
+.rn{flex:1;min-width:0}
+.rn b{display:block;font-weight:500;line-height:1.35;overflow-wrap:anywhere}
+.rn .th{display:block;font-size:.9rem;opacity:.8;overflow-wrap:anywhere}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.qk{border:1px solid var(--line);background:var(--surface,transparent);color:inherit;border-radius:999px;padding:8px 16px;font:600 .95rem inherit;font-family:inherit;min-height:40px;cursor:pointer}
+.chip{font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--key);color:var(--muted);font-variant-numeric:tabular-nums}
+.chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.ok{background:var(--accent-soft);color:var(--accent)}
+.rq{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rq .b{font:700 1.35rem/1 var(--display);display:block}
+.rq .u{font-size:.78rem;color:var(--muted)}
+.rq.neg .b{color:var(--bad)} .rq.low .b{color:var(--warn)}
+.more{padding:14px;text-align:center;color:var(--muted);font-size:.88rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.panel h2{font:600 1.05rem var(--display);margin:0}
+.btn{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:500}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn.big{font:700 1.3rem var(--display);padding:18px}
+.btn:disabled{opacity:.5}
+.field input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:1rem}
+.field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.note{font-size:.82rem;color:var(--muted);margin:0}
+.hist .row{cursor:default}
+.hist .when{font-size:.75rem;color:var(--muted)}
+
+/* drug card */
+.card{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.card .wrap{padding-bottom:40px}
+.cbar{display:flex;justify-content:space-between;align-items:center}
+.x{border:0;background:var(--key);border-radius:999px;padding:8px 14px;font-size:.9rem}
+.cname{font:700 1.45rem/1.25 var(--display);margin:0;overflow-wrap:anywhere}
+.cth{font-size:1.15rem;margin:2px 0 0;overflow-wrap:anywhere}
+.cshelf{font-size:.85rem;color:var(--muted)}
+.balbox{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center}
+.balbox .lab{font-size:.9rem;color:var(--muted)}
+.balbox .num{font:700 3.6rem/1.1 var(--display);font-variant-numeric:tabular-nums}
+.balbox .num small{font:500 1.1rem var(--body);color:var(--muted)}
+.balbox.neg .num{color:var(--bad)} .balbox.low .num{color:var(--warn)}
+.lots{display:flex;flex-direction:column;gap:6px;margin-top:10px;text-align:left}
+.lot{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:.9rem;font-variant-numeric:tabular-nums}
+.lot.bad{background:var(--bad-soft);color:var(--bad)} .lot.warn{background:var(--warn-soft);color:var(--warn)}
+.takebox{display:flex;flex-direction:column;gap:10px}
+.qrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.qrow button{width:58px;height:58px;border-radius:50%;border:0;background:var(--key);font:700 1.8rem var(--display);color:var(--accent)}
+.qrow .q{font:700 2.4rem var(--display);min-width:80px;text-align:center;font-variant-numeric:tabular-nums}
+.done{background:var(--accent);color:var(--surface);border-radius:16px;padding:22px;text-align:center}
+.done .big{font:700 1.6rem/1.3 var(--display)}
+.done .btn{background:transparent;border-color:rgba(255,255,255,.6);color:inherit;margin-top:10px}
+.admin-box{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.disp{display:flex;justify-content:space-between;align-items:baseline;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);min-height:58px;gap:8px}
+.disp .ex{font-size:.88rem;color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.disp .res{font:700 1.9rem/1 var(--display);font-variant-numeric:tabular-nums}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pad button{padding:14px 0;border-radius:12px;border:0;background:var(--key);font:600 1.3rem var(--display)}
+.pad .op{color:var(--accent)} .pad .save{grid-row:span 2;background:var(--accent);color:var(--surface);font-size:1.02rem}
+.walkhead{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted)}
+.modal{position:fixed;inset:0;z-index:30;background:rgba(10,20,18,.5);display:flex;align-items:flex-end;justify-content:center}
+.modal .panel{width:100%;max-width:620px;border-radius:18px 18px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.gate{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+.gate .panel{max-width:460px;margin:0 auto}
+.gate h2{font:700 1.3rem var(--display)}
+.gate .lock{font-size:2.2rem;line-height:1}
+.toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:.9rem;z-index:50;max-width:92vw;text-align:center}
+.sync{font-size:.75rem;color:var(--muted)}
+.sync.off{color:var(--bad)}
+/* หน้าปก: แสดงตอนเปิดแอปจนกว่ายอดจะโหลด แตะเพื่อข้ามได้ */
+.cover{position:fixed;inset:0;z-index:70;background:#0f7a68;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));transition:opacity .35s ease,visibility .35s;cursor:pointer}
+.cover.out{opacity:0;visibility:hidden}
+.cover::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 0%,rgba(255,255,255,.14),transparent 60%);pointer-events:none}
+.cover .ic{width:112px;height:112px;border-radius:28px;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:pop .5s ease-out both}
+.cover h1{font:700 2.6rem/1.1 var(--display);margin:6px 0 0;letter-spacing:.01em;color:#fff}
+.cover .fac{font:600 1.1rem var(--display);opacity:.92}
+.cover .tag{max-width:300px;font-size:.95rem;opacity:.85;margin:0}
+.cover .steps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.cover .steps span{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:6px 12px;font-size:.85rem}
+.cover .dots{display:flex;gap:6px;margin-top:18px}
+.cover .dots i{width:8px;height:8px;border-radius:50%;background:#fff;opacity:.35;animation:dot 1s infinite}
+.cover .dots i:nth-child(2){animation-delay:.15s}.cover .dots i:nth-child(3){animation-delay:.3s}
+.cover .msg{font-size:.82rem;opacity:.8;min-height:1.3em}
+.cover .foot{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:0;right:0;font-size:.75rem;opacity:.7}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+@keyframes dot{0%,100%{opacity:.3}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.cover,.cover .ic,.cover .dots i{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="cover" id="cover" role="status" aria-live="polite">
+  <img class="ic" src="icons/icon.svg" alt="">
+  <h1>คลังใน</h1>
+  <div class="fac" id="coverFac">รพ.สต.บ้านบวกหมื้อ</div>
+  <p class="tag">สต๊อกการ์ดยาออนไลน์ หยิบแล้วยอดตัดทันที ทุกคนเห็นตรงกัน</p>
+  <div class="steps"><span>📷 สแกน QR ที่ชั้น</span><span>👆 กดหยิบ</span><span>✅ ยอดตัดทันที</span></div>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="msg" id="coverMsg">กำลังโหลดยอดล่าสุด…</div>
+  <div class="foot">แตะเพื่อเข้าใช้งาน</div>
+</div>
+<div class="wrap" id="home">
+  <header>
+    <div><h1 id="fac">คลังใน</h1><div class="sync" id="sync">กำลังโหลด…</div></div>
+    <div class="hbtns"><button class="theme" id="themeBtn" aria-label="สลับโหมดสว่าง/มืด"></button><button class="me" id="meBtn">ตั้งชื่อ</button></div>
+  </header>
+  <div class="banner warn" id="pendingBox" hidden></div>
+  <div class="top">
+    <div class="search"><input type="search" id="q" placeholder="ค้นหายา เช่น พารา, amlo" autocomplete="off" enterkeyhint="search"><button class="scanbtn" id="scanBtn">📷 สแกน</button></div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div id="view"></div>
+  <section class="panel" id="setupBox" hidden>
+    <h2>ยังไม่ได้เชื่อมระบบ</h2>
+    <p class="note">ผู้ดูแลระบบต้องเปิดลิงก์ที่มี ?api= ต่อท้ายหนึ่งครั้งบนเครื่องนี้ หรือแก้ค่า API_URL ในไฟล์ index.html</p>
+  </section>
+</div>
+
+<div class="card" id="card" hidden role="dialog" aria-modal="true" aria-labelledby="cName">
+  <div class="wrap">
+    <div class="cbar"><span class="sub" id="cCode"></span><button class="x" id="cClose">✕ ปิด</button></div>
+    <div><h2 class="cname" id="cName"></h2><p class="cth" id="cTh"></p><div class="cshelf" id="cShelf"></div></div>
+    <div class="balbox" id="balbox"><div class="lab">คงเหลือในคลังใน</div><div class="num" id="cBal"></div><div class="lots" id="cLots"></div></div>
+
+    <div class="takebox" id="takeBox">
+      <div class="qrow"><button id="qMinus" aria-label="ลดจำนวน">−</button><input class="q" id="qVal" inputmode="numeric" pattern="[0-9]*" value="1" aria-label="จำนวนที่หยิบ พิมพ์ตัวเลขได้" style="border:0;background:transparent;color:inherit;text-align:center;width:6ch;min-width:0;padding:0;font-family:inherit"><button id="qPlus" aria-label="เพิ่มจำนวน">+</button></div>
+      <div id="qQuick" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:-2px 0 10px"><button class="qk" data-add="10">+10</button><button class="qk" data-add="30">+30</button><button class="qk" data-add="100">+100</button><button class="qk" data-add="0">ล้าง</button></div>
+      <button class="btn primary big" id="takeBtn">หยิบ 1</button>
+    </div>
+    <div class="done" id="doneBox" hidden>
+      <div class="big" id="doneTxt"></div>
+      <div id="doneSub"></div>
+      <button class="btn" id="undoBtn">กดผิด ยกเลิก</button>
+      <button class="btn" id="doneClose">เสร็จ</button>
+    </div>
+    <div class="sub" id="cLast"></div>
+
+    <div class="admin-box" id="adminBox" hidden>
+      <div class="seg" id="seg"><button data-m="receive" aria-pressed="true">รับเข้าจากคลังยาใหญ่</button><button data-m="count" aria-pressed="false">นับจริง</button><button data-m="dispose" aria-pressed="false">ตัดหมดอายุ/ชำรุด</button></div>
+      <div id="dispBox" class="takebox" hidden>
+        <div class="field"><label>เหตุผล</label><div class="seg" id="reason"><button data-r="หมดอายุ" aria-pressed="true">หมดอายุ</button><button data-r="ชำรุด" aria-pressed="false">ชำรุด/เสีย</button><button data-r="อื่นๆ" aria-pressed="false">อื่นๆ</button></div></div>
+        <div class="field"><label for="dLot">ตัดจากล็อตวันหมดอายุ</label><select id="dLot" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:1rem"></select></div>
+        <p class="note">ยาที่ตัดจำหน่ายจะไม่ถูกนับเป็นยอดใช้ และขึ้นในประวัติแยกไว้ทำรายงาน</p>
+      </div>
+      <div id="recvBox" class="takebox">
+        <div class="field"><label for="rExp">วันหมดอายุ (ตามล็อตในคลังยาใหญ่)</label><input type="date" id="rExp" disabled></div>
+        <p class="note" id="rExpNote"></p>
+      </div>
+      <div class="disp"><span class="ex" id="ex"></span><span class="res" id="res">0</span></div>
+      <div class="pad" id="pad">
+        <button>7</button><button>8</button><button>9</button><button class="op" data-k="b">⌫</button>
+        <button>4</button><button>5</button><button>6</button><button class="op" data-k="x">×</button>
+        <button>1</button><button>2</button><button>3</button><button class="save" data-k="s">บันทึก</button>
+        <button class="op" data-k="c">ล้าง</button><button>0</button><button class="op" data-k="+">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="nameModal" hidden>
+  <div class="panel">
+    <h2>ชื่อของคุณ</h2>
+    <p class="note">ใส่ครั้งเดียว เครื่องนี้จะจำไว้ ใช้บอกว่าใครหยิบยา</p>
+    <div class="field"><input id="nameIn" placeholder="เช่น พี่แดง, น้องฝน" autocomplete="name"></div>
+    <button class="btn primary" id="nameSave">บันทึกชื่อ</button>
+    <button class="btn" id="adminLogin">ฉันเป็นผู้ดูแลสต๊อก</button>
+  </div>
+</div>
+<div class="modal" id="pinModal" hidden>
+  <div class="panel">
+    <h2>รหัสผู้ดูแลสต๊อก</h2>
+    <p class="note">ใช้สำหรับรับยาเข้าและนับสต๊อก</p>
+    <div class="field"><input id="pinIn" type="password" inputmode="numeric" autocomplete="off"></div>
+    <button class="btn primary" id="pinOk">เข้าโหมดผู้ดูแล</button>
+    <button class="btn" id="pinCancel">ยกเลิก</button>
+  </div>
+</div>
+<div class="scan" id="scan" hidden><video id="scanVid" playsinline muted></video><div class="frame"></div><div class="msg" id="scanMsg">เล็งกล้องไปที่ QR บนป้ายชั้นยา</div><button class="close" id="scanClose">ปิดกล้อง</button></div>
+<div class="gate" id="gate" hidden>
+  <div class="panel" id="gForm">
+    <div class="lock" aria-hidden="true">🔒</div>
+    <h2>ขอสิทธิ์ใช้งานคลังใน</h2>
+    <p class="note">เครื่องนี้ยังไม่ได้รับอนุญาต กรอกชื่อแล้วกดส่งคำขอ ผู้ดูแลระบบจะอนุมัติให้ ใช้เวลาไม่นาน</p>
+    <div class="field"><label for="gName">ชื่อ-นามสกุล หรือชื่อเล่นที่ทีมรู้จัก</label><input id="gName" autocomplete="name"></div>
+    <div class="field"><label for="gRole">ตำแหน่ง/หน้าที่</label><input id="gRole" placeholder="พยาบาล, ผู้ช่วย, แม่บ้าน"></div>
+    <button class="btn primary" id="gSend">ส่งคำขอ</button>
+  </div>
+  <div class="panel" id="gWait" hidden>
+    <div class="lock" aria-hidden="true">⏳</div>
+    <h2>รอผู้ดูแลอนุมัติ</h2>
+    <p class="note">ส่งคำขอแล้ว เปิดหน้านี้ทิ้งไว้ได้ เมื่ออนุมัติแล้วแอปจะเปิดให้ใช้เอง หรือกลับมาเปิดใหม่ภายหลัง</p>
+    <button class="btn" id="gCheck">ตรวจสอบอีกครั้ง</button>
+  </div>
+  <div class="panel" id="gNo" hidden>
+    <div class="lock" aria-hidden="true">⛔</div>
+    <h2>ไม่ได้รับอนุญาต</h2>
+    <p class="note">เครื่องนี้ไม่ได้รับอนุญาตให้ใช้งาน ถ้าคิดว่าผิดพลาด ติดต่อผู้ดูแลระบบที่บวกหมื้อ</p>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+
+<script src="config.js"></script>
+<script>
+const API_URL = (window.BM_API||''); // ใส่ลิงก์ Web App ของ Apps Script หลัง deploy (หรือเปิดหน้านี้ด้วย ?api=ลิงก์ หนึ่งครั้ง)
+const $ = id => document.getElementById(id);
+const fmt = v => Number(v).toLocaleString('th-TH');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+let api = '';
+try{const p=new URLSearchParams(location.search).get('api');if(p){LS.set('bm.api',p);history.replaceState(null,'',location.pathname+location.hash)}}catch(e){}
+api = LS.get('bm.api','') || API_URL;
+let dev = LS.get('bm.dev',''); if(!dev){dev=Math.random().toString(36).slice(2,8).toUpperCase();LS.set('bm.dev',dev)}
+let tok = LS.get('bm.tok',''); if(!/^[a-f0-9]{32}$/.test(tok)){const a=new Uint8Array(16);crypto.getRandomValues(a);tok=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');LS.set('bm.tok',tok)}
+let me = LS.get('bm.me',''), pin = LS.get('bm.pin','');
+let state = LS.get('bm.cache', null), lastSync = LS.get('bm.cacheAt', 0);
+let pending = LS.get('bm.pending', []);
+let tab='all', query='', cur=null, qty=1, mode='receive', expr='', walk=null, lastMove=null, busy=false;
+
+/* ---------- server ---------- */
+function denied(j){if(j&&j.code==='unapproved'){showGate();throw new Error('unapproved')}}
+async function get(){const r=await fetch(api+'?a=all&tok='+tok+'&t='+Date.now());const j=await r.json();denied(j);if(!j.ok)throw new Error(j.error||'โหลดไม่ได้');hideGate();return j}
+async function post(body){const r=await fetch(api,{method:'POST',body:JSON.stringify(Object.assign({},body,{tok}))});const j=await r.json();denied(j);if(!j.ok)throw new Error(j.error||'บันทึกไม่ได้');return j}
+function apply(s){if(!s)return;state=s;lastSync=Date.now();LS.set('bm.cache',s);LS.set('bm.cacheAt',lastSync);renderAll()}
+async function refresh(){
+  if(!api)return;
+  try{apply(await get());setSync(true)}catch(e){if(e.message==='unapproved')return;setSync(false)}
+  flushPending();
+}
+function setSync(ok){const el=$('sync');
+  if(ok){el.className='sync';el.textContent='ยอดล่าสุด '+new Date(lastSync).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}
+  else{el.className='sync off';el.textContent='ไม่มีเน็ต · ยอดเมื่อ '+(lastSync?new Date(lastSync).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'-')}}
+async function flushPending(){
+  if(!pending.length||busy)return;
+  busy=true;
+  while(pending.length){
+    try{const j=await post(pending[0]);pending.shift();LS.set('bm.pending',pending);apply(j.state)}
+    catch(e){if(/Failed to fetch|NetworkError|Load failed/i.test(e.message))break;pending.shift();LS.set('bm.pending',pending);toast('ส่งรายการค้างไม่สำเร็จ: '+e.message)}
+  }
+  busy=false;renderPending();
+}
+function renderPending(){const b=$('pendingBox');b.hidden=!pending.length;b.textContent=`มี ${pending.length} รายการที่บันทึกไว้ในเครื่อง รอส่งเมื่อมีเน็ต`}
+
+/* ---------- helpers ---------- */
+const items=()=>state?state.items:[];
+const find=c=>items().find(i=>i.c===c);
+function days(iso){if(!iso)return 99999;const t=state?state.today:new Date().toISOString().slice(0,10);return Math.round((new Date(iso)-new Date(t))/864e5)}
+function tier(iso){const d=days(iso);return d<0?'bad':d<=90?'bad':d<=180?'warn':''}
+function tierText(iso){const d=days(iso);if(d<0)return 'หมดอายุแล้ว';if(d<=90)return 'เหลือ '+d+' วัน';if(d<=180)return 'เหลือ '+Math.round(d/30)+' เดือน';return ''}
+const thDate=iso=>iso?new Date(iso).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}):'ไม่ระบุ';
+function mergedLots(it){const m={};it.lots.forEach(([e,q])=>{m[e]=(m[e]||0)+q});return Object.entries(m).sort((a,b)=>(a[0]||'9')<(b[0]||'9')?-1:1)}
+const soonest=it=>{const l=mergedLots(it).find(([e])=>e);return l?l[0]:''};
+const norm=s=>s.toLowerCase().replace(/[\s\-\/().,+]/g,'');
+const matches=it=>!query||query.toLowerCase().split(/\s+/).filter(Boolean).every(t=>norm(it.n+' '+it.t+' '+it.c).includes(norm(t)));
+const isLow=it=>it.b>0&&it.min>0&&it.b<=it.min;
+const isOut=it=>it.has&&it.b<=0;
+const unitOf=it=>it.u||'ชิ้น';
+const shelfName=s=>String(s||'').replace(/^\d+\s*/,'');
+
+/* ---------- home ---------- */
+function renderAll(){
+  $('fac').textContent=state&&state.facility?'คลังใน '+state.facility:'คลังใน';
+  renderMe();renderTabs();renderView();renderPending();
+  if(cur)renderCard();
+}
+/* ---------- โหมดสว่าง/มืด: แตะปุ่มเพื่อสลับ เครื่องจำไว้ ---------- */
+function isDark(){const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches}
+function renderTheme(){const d=isDark();$('themeBtn').textContent=d?'☀️':'🌙';$('themeBtn').title=d?'เปลี่ยนเป็นโหมดสว่าง':'เปลี่ยนเป็นโหมดมืด'}
+$('themeBtn').onclick=()=>{const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;LS.set('bm.theme',t);renderTheme()};
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',renderTheme)}catch(e){}
+renderTheme();
+function renderMe(){const b=$('meBtn');b.textContent=me?(pin?'ผู้ดูแล · ':'')+me:'ตั้งชื่อ';b.classList.toggle('admin',!!pin)}
+function counts(){
+  const its=items();
+  return {all:its.length,low:its.filter(i=>isOut(i)||isLow(i)).length,exp:its.filter(i=>i.b>0&&mergedLots(i).some(([e])=>e&&days(e)<=180)).length,neg:its.filter(i=>i.b<0).length};
+}
+function renderTabs(){
+  const c=counts();
+  const T=[['all','ทั้งหมด',c.all],['exp','ใกล้หมดอายุ',c.exp],['low','ใกล้หมด/หมด',c.low],['hist','ใครหยิบอะไร',null]];
+  if(c.neg)T.splice(1,0,['neg','ต้องนับใหม่',c.neg]);
+  if(pin)T.push(['walk','เดินนับตามชั้น',null],['req','ใบเบิก',null],['dash','แดชบอร์ด',null]);
+  $('tabs').innerHTML=T.map(([k,l,n])=>`<button data-t="${k}" aria-pressed="${tab===k&&!query}">${l}${n!==null?` <span class="n ${k==='exp'||k==='neg'?'hot':''}">${n}</span>`:''}</button>`).join('');
+}
+function rowHTML(it){
+  const se=soonest(it),t=se?tier(se):'';
+  const chips=[];
+  if(it.s)chips.push(`<span class="chip">${esc(shelfName(it.s))}</span>`);
+  if(se&&t)chips.push(`<span class="chip ${t}">หมดอายุ ${thDate(se)} · ${tierText(se)}</span>`);
+  if(it.b<0)chips.push('<span class="chip bad">ยอดติดลบ ต้องนับใหม่</span>');
+  else if(it.b===0&&it.has)chips.push('<span class="chip bad">หมด</span>');
+  else if(!it.has)chips.push('<span class="chip">ยังไม่เคยรับเข้า</span>');
+  else if(isLow(it))chips.push('<span class="chip warn">ถึงจุดสั่งซื้อ</span>');
+  const cls=it.b<0||isOut(it)?'neg':isLow(it)?'low':'';
+  return `<button class="row" data-c="${it.c}"><span class="rn"><b>${esc(it.n)}</b>${it.t?`<span class="th">${esc(it.t)}</span>`:''}${chips.length?`<span class="chips">${chips.join('')}</span>`:''}</span>
+    <span class="rq ${cls}"><span class="b">${fmt(it.b)}</span><span class="u">${esc(unitOf(it))}</span></span></button>`;
+}
+function renderView(){
+  const v=$('view');$('setupBox').hidden=!!api;
+  if(!state){v.innerHTML=api?'<div class="more">กำลังโหลดยอด…</div>':'';return}
+  if(tab==='hist'&&!query){
+    const rows=state.recent.map(([id,time,type,c,q,after,by,note])=>{const it=find(c);return `<div class="row"><span class="rn"><b>${esc(type)} ${fmt(q)} ${esc(it?unitOf(it):'')} · ${esc(it?(it.t||it.n):c)}</b><span class="when">${new Date(time).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})} · ${esc(by||'ไม่ระบุชื่อ')}${note?' · '+esc(note):''}</span></span><span class="rq"><span class="u">เหลือ</span><span class="b" style="font-size:1rem">${fmt(after)}</span></span></div>`}).join('');
+    v.innerHTML=`<div class="list hist">${rows||'<div class="more">ยังไม่มีการเคลื่อนไหว</div>'}</div>`;return;
+  }
+  if(tab==='walk'&&!query&&pin){renderWalk();return}
+  let list=items().filter(matches);
+  if(!query){
+    if(tab==='exp')list=list.filter(i=>i.b>0&&mergedLots(i).some(([e])=>e&&days(e)<=180)).sort((a,b)=>soonest(a)<soonest(b)?-1:1);
+    if(tab==='low')list=list.filter(i=>isOut(i)||isLow(i));
+    if(tab==='neg')list=list.filter(i=>i.b<0);
+  }
+  let head='';
+  if(tab==='exp'&&!query){const ex=list.filter(i=>days(soonest(i))<0).length;head=ex?`<div class="banner bad">มียาหมดอายุแล้ว ${ex} รายการ ให้แยกออกจากชั้น</div>`:''}
+  const LIM=150;
+  v.innerHTML=head+`<div class="list">${list.slice(0,LIM).map(rowHTML).join('')||`<div class="more">${query?'ไม่พบยา ลองพิมพ์สั้นลง':'ไม่มีรายการ'}</div>`}${list.length>LIM?`<div class="more">แสดง ${LIM} จาก ${list.length} พิมพ์ค้นหาเพื่อหาตัวที่เหลือ</div>`:''}</div>`;
+}
+$('view').addEventListener('click',e=>{const r=e.target.closest('.row[data-c]');if(r)openCard(r.dataset.c)});
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.t==='req'){location.href='requisition.html';return}if(b.dataset.t==='dash'){location.href='dashboard.html';return}tab=b.dataset.t;query='';$('q').value='';walk=null;renderTabs();renderView();refresh()});
+$('q').addEventListener('input',e=>{query=e.target.value.trim();renderTabs();renderView()});
+
+/* ---------- walk count (admin) ---------- */
+function walkList(){return items().slice().sort((a,b)=>(a.s||'zz').localeCompare(b.s||'zz','th')||a.c.localeCompare(b.c))}
+function renderWalk(){
+  const L=walkList();if(!L.length){$('view').innerHTML='<div class="more">ไม่มีรายการ</div>';return}
+  if(walk===null){walk=LS.get('bm.walk',0);if(walk>=L.length)walk=0}
+  const it=L[walk];
+  $('view').innerHTML=`<div class="panel"><div class="walkhead"><span>ตัวที่ ${walk+1} / ${L.length}${it.s?' · '+esc(shelfName(it.s)):''}</span><span>ในระบบ ${fmt(it.b)} ${esc(unitOf(it))}</span></div>
+   <div><b style="font:600 1.15rem var(--display)">${esc(it.n)}</b>${it.t?`<div>${esc(it.t)}</div>`:''}</div>
+   <div class="btns" style="display:flex;gap:8px"><button class="btn" id="wPrev">‹ ก่อนหน้า</button><button class="btn primary" id="wOpen" style="flex:1">นับตัวนี้</button><button class="btn" id="wNext">ถัดไป ›</button></div>
+   <p class="note">กด "นับตัวนี้" ใส่จำนวนที่เห็นจริง แล้วกดบันทึก ระบบจะไปตัวถัดไปให้เอง เรียงตามช่อง "หมวด/ชั้น" ในชีตรายการยา</p></div>`;
+  $('wPrev').onclick=()=>{walk=(walk-1+L.length)%L.length;LS.set('bm.walk',walk);renderWalk()};
+  $('wNext').onclick=()=>{walk=(walk+1)%L.length;LS.set('bm.walk',walk);renderWalk()};
+  $('wOpen').onclick=()=>{openCard(it.c,{mode:'count',walk:true})};
+}
+
+/* ---------- drug card ---------- */
+function openCard(c,opt={}){
+  const it=find(c);
+  if(!it){if(state)toast('ไม่พบยารหัส '+c+' ในคลังนี้');return}
+  cur={c,walk:!!opt.walk};qty=1;expr='';lastMove=null;mode=opt.mode||'receive';
+  if(location.hash!=='#'+c)history.replaceState(null,'','#'+c);
+  $('doneBox').hidden=true;$('takeBox').hidden=!!opt.walk;
+  $('card').hidden=false;document.body.style.overflow='hidden';
+  renderCard();setMode(mode);
+}
+function closeCard(){
+  $('card').hidden=true;document.body.style.overflow='';
+  const wasWalk=cur&&cur.walk;cur=null;
+  history.replaceState(null,'',location.pathname);
+  if(wasWalk)renderWalk();
+}
+function renderCard(){
+  const it=find(cur.c);if(!it)return;
+  $('cCode').textContent='รหัส '+it.c;$('cName').textContent=it.n;$('cTh').textContent=it.t;$('cTh').hidden=!it.t;
+  $('cShelf').textContent=shelfName(it.s);
+  const bb=$('balbox');bb.className='balbox '+(it.b<0||isOut(it)?'neg':isLow(it)?'low':'');
+  $('cBal').innerHTML=`${fmt(it.b)} <small>${esc(unitOf(it))}</small>`;
+  const L=mergedLots(it);
+  $('cLots').innerHTML=(it.b<0?'<div class="lot bad">ยอดติดลบ แปลว่ามีการหยิบเกินยอดในระบบ ให้ผู้ดูแลนับใหม่</div>':'')+
+    L.map(([e,q])=>`<div class="lot ${e?tier(e):''}"><span>หมดอายุ ${thDate(e)}${e&&tierText(e)?' · '+tierText(e):''}</span><span>${fmt(q)} ${esc(unitOf(it))}</span></div>`).join('');
+  const l=it.last;
+  $('cLast').textContent=l?`ล่าสุด: ${l[0]} ${fmt(l[1])} ${unitOf(it)} โดย ${l[2]||'ไม่ระบุชื่อ'} · ${new Date(l[3]).toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:'';
+  $('adminBox').hidden=!pin;
+  renderQty();
+}
+function renderQty(){const it=find(cur.c);if(document.activeElement!==$('qVal'))$('qVal').value=qty;$('takeBtn').textContent=`หยิบ ${qty} ${unitOf(it)}`;$('qMinus').disabled=qty<=1}
+$('qMinus').onclick=()=>{if(qty>1){qty--;renderQty()}};
+$('qPlus').onclick=()=>{qty++;renderQty()};
+/* หน่วยนับตามคลังยาใหญ่ (เม็ด แอมพ์ ขวด) จึงพิมพ์จำนวนเองได้ หรือกดปุ่มบวกทีละ 10/30/100 */
+$('qVal').oninput=e=>{const v=parseInt(e.target.value.replace(/\D/g,''),10);qty=v>=1?Math.min(v,99999):1;renderQty()};
+$('qVal').onblur=()=>renderQty();$('qVal').onfocus=e=>e.target.select();
+$('qQuick').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;const n=Number(b.dataset.add);qty=n?(qty===1?n:qty+n):1;renderQty()};
+$('cClose').onclick=closeCard;$('doneClose').onclick=closeCard;
+
+/* local optimistic update so the number changes immediately */
+function localApply(c,delta){const it=find(c);if(it){it.b+=delta;LS.set('bm.cache',state)}}
+
+$('takeBtn').onclick=async()=>{
+  if(!me){askName(()=>$('takeBtn').click());return}
+  const it=find(cur.c),q=qty,body={a:'take',c:it.c,q,by:me,dev};
+  $('takeBtn').disabled=true;
+  try{
+    const j=await post(body);lastMove=j.move;apply(j.state);
+    showDone(`หยิบ ${fmt(q)} ${unitOf(it)} แล้ว`,`เหลือ ${fmt(j.bal)} ${unitOf(it)}`,true);
+  }catch(e){
+    if(/Failed to fetch|NetworkError|Load failed/i.test(e.message)){
+      pending.push(body);LS.set('bm.pending',pending);localApply(it.c,-q);renderAll();
+      showDone(`บันทึกหยิบ ${fmt(q)} ${unitOf(it)} ไว้ในเครื่อง`,'ตอนนี้ไม่มีเน็ต ระบบจะส่งให้เองเมื่อมีเน็ต',false);
+    }else toast(e.message);
+  }finally{$('takeBtn').disabled=false}
+};
+function showDone(t,s,canUndo){$('takeBox').hidden=true;$('doneBox').hidden=false;$('doneTxt').textContent=t;$('doneSub').textContent=s;$('undoBtn').hidden=!canUndo}
+$('undoBtn').onclick=async()=>{
+  if(!lastMove)return;
+  try{const j=await post({a:'undo',id:lastMove.id,dev,by:me});apply(j.state);toast('ยกเลิกแล้ว');lastMove=null;$('doneBox').hidden=true;$('takeBox').hidden=false;qty=1;renderQty()}
+  catch(e){toast(e.message)}
+};
+
+/* ---------- admin: receive / count ---------- */
+let reason='หมดอายุ';
+$('reason').onclick=e=>{const b=e.target.closest('button');if(!b)return;reason=b.dataset.r;[...$('reason').children].forEach(x=>x.setAttribute('aria-pressed',x===b))};
+function fillLots(){const it=cur&&find(cur.c);if(!it)return;const L=mergedLots(it);$('dLot').innerHTML=L.length?L.map(([e,q])=>`<option value="${e}">หมดอายุ ${thDate(e)} · มี ${fmt(q)} ${esc(unitOf(it))}${e&&days(e)<0?' (หมดอายุแล้ว)':''}</option>`).join(''):'<option value="">ไม่มียาในระบบ</option>';const ex=L.find(([e])=>e&&days(e)<0);if(ex)$('dLot').value=ex[0]}
+function setMode(m){mode=m;[...$('seg').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));$('recvBox').hidden=m!=='receive';$('dispBox').hidden=m!=='dispose';if(m==='dispose')fillLots();expr='';showExpr();
+  if(m==='receive'&&cur){const it=find(cur.c);if(it)loadHubExp(it)}}
+$('seg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
+async function loadHubExp(it){
+  $('rExp').value='';$('rExp').disabled=true;$('rExpNote').textContent='กำลังดูยอดในคลังยาใหญ่…';
+  try{const r=await fetch(api+'?a=hubexp&tok='+tok+'&n='+encodeURIComponent(it.n));const j=await r.json();
+    if(cur&&cur.c===it.c){$('rExp').value=j.exp||'';
+      if(j.deduct===false){$('rExp').disabled=false;$('rExpNote').textContent='ปิดการตัดยอดคลังยาใหญ่อยู่ (HUB_DEDUCT = OFF) ตรวจวันหมดอายุจากกล่องแล้วแก้ได้'}
+      else $('rExpNote').textContent=j.avail>0?`คลังยาใหญ่มี ${fmt(j.avail)} ${j.unit||unitOf(it)} · กดบันทึกแล้วระบบตัดยอดคลังยาใหญ่ให้ด้วย โดยตัดล็อตที่หมดอายุเร็วสุดก่อน`:'คลังยาใหญ่ไม่มียาตัวนี้ (หรือหมดอายุแล้ว) จึงรับเข้าไม่ได้ ถ้าของอยู่ในคลังในอยู่แล้วให้ใช้ "นับจริง"'}}
+  catch(e){$('rExpNote').textContent='ดูยอดคลังยาใหญ่ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่'}
+}
+function evalExpr(s){if(!s)return 0;let t=0;for(const term of s.split('+')){if(term==='')continue;t+=term.split('×').reduce((a,b)=>a*(b===''?1:Number(b)),1)}return Math.round(t)}
+function showExpr(){$('ex').textContent=/[+×]/.test(expr)?expr.replace(/×/g,' × ').replace(/\+/g,' + '):(mode==='count'?'นับได้จริง':mode==='dispose'?'จำนวนที่ตัดทิ้ง':'จำนวนที่รับ');$('res').textContent=fmt(evalExpr(expr))}
+$('pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.k;
+  if(!k){if(expr.replace(/.*[+×]/,'').length<6)expr+=b.textContent}
+  else if(k==='b')expr=expr.slice(0,-1);else if(k==='c')expr='';
+  else if(k==='x'||k==='+'){if(expr&&!/[+×]$/.test(expr))expr+=k==='x'?'×':'+'}
+  else if(k==='s'){adminSave();return}
+  showExpr()});
+async function adminSave(){
+  if(!expr){toast(mode==='count'?'ใส่จำนวนที่นับได้ (ไม่มีของให้กด 0)':mode==='dispose'?'ใส่จำนวนที่ตัดทิ้ง':'ใส่จำนวนที่รับ');return}
+  const it=find(cur.c),q=evalExpr(expr);
+  const body=mode==='receive'?{a:'receive',c:it.c,q,exp:$('rExp').value,by:me,dev,pin}:mode==='dispose'?{a:'dispose',c:it.c,q,exp:$('dLot').value,reason,by:me,dev,pin}:{a:'count',c:it.c,q,by:me,dev,pin};
+  try{
+    const j=await post(body);apply(j.state);expr='';showExpr();
+    if(mode==='receive')toast(`รับเข้า ${fmt(q)} ${unitOf(it)} · เหลือ ${fmt(j.bal)}`);
+    else if(mode==='dispose'){toast(`ตัด${reason} ${fmt(q)} ${unitOf(it)} · เหลือ ${fmt(j.bal)}`);fillLots()}
+    else toast(j.diff===0?`ตรงกับระบบ (${fmt(q)})`:`${j.diff>0?'เกิน':'ขาด'} ${fmt(Math.abs(j.diff))} ${unitOf(it)} · ปรับยอดเป็น ${fmt(q)} แล้ว`);
+    if(cur.walk){const L=walkList();walk=(walk+1)%L.length;LS.set('bm.walk',walk);openCard(L[walk].c,{mode:'count',walk:true})}
+  }catch(e){if(/รหัสผู้ดูแล/.test(e.message)){pin='';LS.set('bm.pin','');renderAll()}toast(e.message)}
+}
+
+/* ---------- name & admin ---------- */
+let afterName=null;
+function askName(cb){afterName=cb||null;$('nameIn').value=me;$('nameModal').hidden=false;setTimeout(()=>$('nameIn').focus(),50)}
+$('meBtn').onclick=()=>askName();
+$('nameSave').onclick=()=>{const v=$('nameIn').value.trim();if(!v){toast('ใส่ชื่อก่อน');return}me=v;LS.set('bm.me',me);$('nameModal').hidden=true;renderMe();if(afterName){const f=afterName;afterName=null;f()}};
+$('nameIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('nameSave').click()});
+$('adminLogin').onclick=()=>{if(pin){pin='';LS.set('bm.pin','');$('nameModal').hidden=true;renderAll();toast('ออกจากโหมดผู้ดูแลแล้ว');return}
+  const v=$('nameIn').value.trim();if(v){me=v;LS.set('bm.me',me)}$('nameModal').hidden=true;$('pinIn').value='';$('pinModal').hidden=false;setTimeout(()=>$('pinIn').focus(),50)};
+$('pinCancel').onclick=()=>$('pinModal').hidden=true;
+$('pinOk').onclick=async()=>{const v=$('pinIn').value.trim();try{const j=await post({a:'pin',pin:v,dev});pin=v;LS.set('bm.pin',pin);$('pinModal').hidden=true;apply(j.state);toast('เข้าโหมดผู้ดูแลแล้ว')}catch(e){toast(e.message)}};
+$('pinIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('pinOk').click()});
+function syncAdminLabel(){$('adminLogin').textContent=pin?'ออกจากโหมดผู้ดูแล':'ฉันเป็นผู้ดูแลสต๊อก'}
+new MutationObserver(syncAdminLabel).observe($('nameModal'),{attributes:true});
+
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)}
+
+/* ---------- scan QR in the page ---------- */
+let scanStream=null,scanTimer=null,detector=null;
+async function startScan(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('เครื่องนี้เปิดกล้องในหน้าเว็บไม่ได้ ให้ใช้แอปกล้องสแกน QR แทน');return}
+  $('scan').hidden=false;$('scanMsg').textContent='เล็งกล้องไปที่ QR บนป้ายชั้นยา';
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=$('scanVid');v.srcObject=scanStream;await v.play();
+    try{if('BarcodeDetector' in window)detector=new BarcodeDetector({formats:['qr_code']})}catch(e){detector=null}
+    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+    const tick=async()=>{
+      if(!scanStream)return;
+      let txt='';
+      try{
+        if(detector){const r=await detector.detect(v);if(r.length)txt=r[0].rawValue}
+        else if(window.jsQR&&v.videoWidth){const w=480,h=Math.round(v.videoHeight*w/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h);if(r)txt=r.data}
+      }catch(e){}
+      const m=txt.match(/#?([A-Z]\d{3})\s*$/);
+      if(m){
+        if(navigator.vibrate)navigator.vibrate(80);
+        stopScan();
+        if(find(m[1]))openCard(m[1]);else toast('QR นี้ไม่ใช่ยาในคลังนี้ ('+m[1]+')');
+        return;
+      }else if(txt){$('scanMsg').textContent='QR นี้ไม่ใช่สติกเกอร์ยา ลองใหม่'}
+      scanTimer=setTimeout(tick,180);
+    };
+    tick();
+  }catch(e){stopScan();toast('เปิดกล้องไม่ได้ ให้กดอนุญาตใช้กล้องใน Chrome แล้วลองใหม่')}
+}
+function stopScan(){clearTimeout(scanTimer);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('scan').hidden=true}
+$('scanBtn').onclick=startScan;$('scanClose').onclick=stopScan;
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible'&&scanStream)stopScan()});
+
+/* ---------- access gate ---------- */
+let gatePoll=null;
+function gateView(v){['gForm','gWait','gNo'].forEach(id=>$(id).hidden=id!==v)}
+async function gateStatus(){try{const r=await fetch(api+'?a=status&tok='+tok+'&t='+Date.now());const j=await r.json();return j.status||'none'}catch(e){return 'offline'}}
+async function showGate(){
+  state=null;try{localStorage.removeItem('bm.cache')}catch(e){}
+  if(!$('gate').hidden&&gatePoll)return;
+  $('gate').hidden=false;if(cur)closeCard();hideCover();
+  $('gName').value=me||'';
+  const st=await gateStatus();
+  if(st==='pending'){gateView('gWait');pollGate()}else if(st==='rejected')gateView('gNo');else if(st==='approved'){hideGate();refresh()}else gateView('gForm');
+}
+function hideGate(){$('gate').hidden=true;clearInterval(gatePoll);gatePoll=null}
+function pollGate(){clearInterval(gatePoll);gatePoll=setInterval(async()=>{const st=await gateStatus();if(st==='approved'){hideGate();toast('ได้รับอนุมัติแล้ว');refresh()}else if(st==='rejected'){clearInterval(gatePoll);gateView('gNo')}},10000)}
+$('gSend').onclick=async()=>{
+  const name=$('gName').value.trim();if(!name){toast('ใส่ชื่อก่อนส่งคำขอ');$('gName').focus();return}
+  $('gSend').disabled=true;
+  try{const r=await fetch(api,{method:'POST',body:JSON.stringify({a:'register',tok,name,role:$('gRole').value.trim(),ua:navigator.userAgent})});
+    const j=await r.json();if(!j.ok)throw new Error(j.error);
+    if(!me){me=name;LS.set('bm.me',me);renderMe()}
+    if(j.status==='approved'){hideGate();refresh()}else if(j.status==='rejected')gateView('gNo');else{gateView('gWait');pollGate()}}
+  catch(e){toast(/fetch|Network|Load failed/i.test(e.message)?'ไม่มีเน็ต ลองใหม่อีกครั้ง':e.message)}
+  finally{$('gSend').disabled=false}
+};
+$('gCheck').onclick=async()=>{const st=await gateStatus();if(st==='approved'){hideGate();toast('ได้รับอนุมัติแล้ว');refresh()}else toast(st==='offline'?'ไม่มีเน็ต':'ยังรออนุมัติอยู่')};
+
+/* ---------- หน้าปก ---------- */
+const coverAt=Date.now();let coverGone=false;
+function hideCover(){if(coverGone)return;coverGone=true;const c=$('cover');c.classList.add('out');setTimeout(()=>c.remove(),400)}
+function coverDone(minMs){setTimeout(hideCover,Math.max(0,minMs-(Date.now()-coverAt)))}
+$('cover').onclick=hideCover;
+if(state&&state.facility)$('coverFac').textContent=state.facility;
+if(/^#[A-Z]\d{3}$/.test(location.hash))hideCover();         // เปิดจาก QR: เข้าการ์ดยาทันที ไม่ต้องรอปก
+else if(state)coverDone(900);                                  // มียอดเก่าในเครื่องแล้ว: โชว์ปกสั้นๆ
+setTimeout(()=>{if(!coverGone)$('coverMsg').textContent='เน็ตช้า กำลังลองต่อ… แตะเพื่อดูยอดล่าสุดในเครื่อง'},6000);
+setTimeout(hideCover,12000);
+
+/* ---------- start ---------- */
+function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3}$/.test(c))openCard(c)}
+window.addEventListener('hashchange',route);
+renderAll();if(state)setSync(false);
+(async()=>{if(state)route();await refresh();coverDone(state?900:600);if(!cur)route()})();
+setInterval(()=>{if(document.visibilityState==='visible')refresh()},15000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
+window.addEventListener('online',flushPending);
+</script>
+</body>
+</html>
