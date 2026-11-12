@@ -3,7 +3,7 @@
  * ใช้คู่กับหน้าเว็บ https://focus2541.github.io/pharmacy-scanner/stock-bm/
  * แยกขาดจากฉบับบ้านเป้า: คนละชีต คนละสคริปต์ คนละลิงก์ คนละการอนุมัติเครื่อง
  *
- * ไฟล์ในโปรเจกต์: Code.gs, Core.gs, Access.gs, Items.gs, Hub.gs, Requisition.gs, Labels.gs, Dashboard.gs, DashboardView.html
+ * ไฟล์ในโปรเจกต์: Code.gs, Core.gs, Access.gs, Items.gs, Hub.gs, Count.gs, Requisition.gs, Labels.gs, Dashboard.gs, DashboardView.html
  *
  * แท็บในไฟล์นี้
  *   รายการยา   รหัส | ชื่อยา | ชื่อไทย | หน่วยนับ | หมวด/ชั้น | จุดสั่งซื้อ | ใช้งาน | ชื่อในคลังบวกหมื้อ | ทุน/หน่วย
