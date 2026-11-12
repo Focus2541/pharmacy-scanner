@@ -48,11 +48,12 @@ function approvedSet_() {
   try { cache.put('devok', JSON.stringify(ok), 60); } catch (_) {}
   return ok;
 }
-/* ล็อกเครื่องปิดอยู่เป็นค่าเริ่มต้น: ทุกเครื่องที่มีลิงก์ใช้ได้ทันที ไม่ต้องขอสิทธิ์
-   อยากกลับมาใช้ระบบอนุมัติเครื่อง ให้ตั้งพร็อพเพอร์ตี้ของสคริปต์ DEVICE_LOCK = ON
-   งานผู้ดูแล (รับเข้า นับจริง ตัดจำหน่าย ใบเบิก) ยังต้องใส่ PIN เหมือนเดิม */
+/* ล็อกเครื่อง: ขอสิทธิ์เฉพาะคนที่ใช้แอปสแกน QR (หยิบ ยกเลิก รับเข้า นับ ตัดจำหน่าย)
+   ดูอย่างเดียว (แดชบอร์ด ใบเบิก สติกเกอร์ QR ยอดคงเหลือ) เปิดได้โดยไม่ต้องขอสิทธิ์
+   ปิดระบบขอสิทธิ์ทั้งหมด: ตั้งพร็อพเพอร์ตี้ของสคริปต์ DEVICE_LOCK = OFF
+   งานผู้ดูแล (รับเข้า นับจริง ตัดจำหน่าย) ยังต้องใส่ PIN เหมือนเดิม */
 function lockOn_() {
-  try { return String(PropertiesService.getScriptProperties().getProperty('DEVICE_LOCK') || '').trim().toUpperCase() === 'ON'; }
+  try { return String(PropertiesService.getScriptProperties().getProperty('DEVICE_LOCK') || '').trim().toUpperCase() !== 'OFF'; }
   catch (_) { return false; }
 }
 function isApproved_(tok) { return !lockOn_() || (!!tok && approvedSet_().indexOf(String(tok)) >= 0); }

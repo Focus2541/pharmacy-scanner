@@ -75,7 +75,7 @@ function doGet(e) {
   try {
     if (p.a === 'approve' || p.a === 'reject') return decide_(p);
     if (p.a === 'status') return json({ ok: true, status: devStatus_(p.tok) });
-    if (p.a && !isApproved_(p.tok)) return json(DENY);
+    /* อ่านอย่างเดียว (all, hubexp, usage, dash) ไม่ต้องขอสิทธิ์ · งานที่แก้ยอดอยู่ใน doPost ซึ่งต้องได้รับอนุมัติ */
     if (p.a === 'all') return json(getAll());
     if (p.a === 'hubexp') return json(Object.assign({ ok: true }, hubInfo_(p.n || '')));
     if (p.a === 'usage') return json(getUsage(Number(p.days) || 90));
