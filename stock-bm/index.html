@@ -598,6 +598,8 @@ setTimeout(hideCover,12000);
 function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3,5}$/.test(c))openCard(c)}
 window.addEventListener('hashchange',route);
 renderAll();if(state)setSync(false);
+/* แอปสแกน: เครื่องที่ยังไม่ได้รับอนุมัติให้ขึ้นหน้าขอสิทธิ์ (หน้าแดชบอร์ด/ใบเบิก/สติกเกอร์ไม่ต้อง) */
+gateStatus().then(st=>{if(st!=='approved'&&st!=='offline')showGate()});
 (async()=>{if(state)route();await refresh();coverDone(state?900:600);if(!cur)route()})();
 setInterval(()=>{if(document.visibilityState==='visible')refresh()},15000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
