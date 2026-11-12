@@ -91,6 +91,7 @@ table.req tr.has td{background:#fffbea}
   <div class="top"><h1>ใบเบิกยาและเวชภัณฑ์</h1><a class="back" href="./">‹ กลับไปหน้าคลัง</a></div>
   <div class="banner" id="info">กำลังโหลดยอดคงเหลือและยอดใช้…</div>
   <div class="box">
+    <label class="f">วันที่เบิก<input type="date" id="rdate"></label>
     <label class="f">ประจำเดือน<select id="month"></select></label>
     <label class="f">เบิกให้พอใช้ (เดือน)<input type="number" id="months" min="0.5" step="0.5" value="1"></label>
     <label class="f">คิดยอดใช้ย้อนหลัง (วัน)<input type="number" id="days" min="7" step="1" value="90"></label>
@@ -121,6 +122,17 @@ let state=null,use={days:0,use:{}},qty={},fac='';
 const TH_M=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 (function months(){const now=new Date(),sel=$('month');for(let i=-1;i<=2;i++){const d=new Date(now.getFullYear(),now.getMonth()+i,1);const y=d.getFullYear()+543,fy=d.getMonth()>=9?y+1:y;
   const o=document.createElement('option');o.value=`${d.getFullYear()}-${d.getMonth()}`;o.textContent=`${TH_M[d.getMonth()]} ${y} (ปีงบ ${fy})`;o.dataset.m=TH_M[d.getMonth()]+' '+String(y).slice(2);o.dataset.fy=fy;if(i===0)o.selected=true;sel.appendChild(o)}})();
+/* วันที่เบิก: เลือกจากปฏิทิน · ตั้งเดือนให้ตรงอัตโนมัติ · พิมพ์ลงหัวใบเบิกและช่องวันที่ของผู้เบิก */
+const isoToday=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+$('rdate').value=isoToday();
+function monthOpt(iso){const [y,m]=iso.split('-').map(Number),v=`${y}-${m-1}`,sel=$('month');let o=[...sel.options].find(x=>x.value===v);
+  if(!o){const by=y+543,fy=m-1>=9?by+1:by;o=document.createElement('option');o.value=v;o.textContent=`${TH_M[m-1]} ${by} (ปีงบ ${fy})`;o.dataset.m=TH_M[m-1]+' '+String(by).slice(2);o.dataset.fy=fy;
+    const opts=[...sel.options];const after=opts.find(x=>{const [yy,mm]=x.value.split('-').map(Number);return yy*12+mm>y*12+m-1});sel.insertBefore(o,after||null)}
+  return o}
+const rdateTh=()=>{const v=$('rdate').value;if(!v)return '';const [y,m,d]=v.split('-').map(Number);return `${d} ${TH_M[m-1]} ${y+543}`};
+const rdateShort=()=>{const v=$('rdate').value;if(!v)return '......../......../........';const [y,m,d]=v.split('-').map(Number);return `${d}/${m}/${y+543}`};
+$('rdate').onchange=()=>{const v=$('rdate').value;if(!v){render();return}const o=monthOpt(v);if($('month').value!==o.value){$('month').value=o.value;$('month').onchange()}else render()};
+$('rdate').onclick=e=>{try{e.target.showPicker()}catch(_){}};
 const draftKey=()=>'bm.req.'+$('month').value;
 function loadDraft(){try{qty=JSON.parse(localStorage.getItem(draftKey()))||null}catch(e){qty=null}}
 function saveDraft(){try{localStorage.setItem(draftKey(),JSON.stringify(qty))}catch(e){}}
@@ -148,11 +160,11 @@ function render(){
       body+=`<tr class="${Number(q)>0?'has':'zero'}"><td class="c k-no">${n}</td><td class="k-name">${esc(name)}</td>${kind==='d'?`<td class="c k-pack">${esc(pack)}</td>`:''}<td class="c k-unit">${esc(unit)}</td><td class="r k-price">${price!=null?fmt(price,2):''}</td>
         <td class="r k-bal${it&&it.has?'':' k-none'}">${bal}${pm!==null&&it&&it.has?`<span class="use">ใช้ ~${fmt(pm,pm<10?1:0)}/ด.</span>`:''}</td><td class="r k-qty"><input inputmode="numeric" data-c="${c}" value="${esc(q)}" aria-label="จำนวนเบิก ${esc(name)}"></td><td class="k-note"></td></tr>`;
     });
-    html+=`<section class="form"><div class="hd"><b>${esc(S.title)}</b><br>โรงพยาบาลส่งเสริมสุขภาพตำบล${esc(fac||'…………………')} หมู่ที่……… ตำบล………………… อำเภอแม่แตง จังหวัดเชียงใหม่<br>ประจำเดือน ${esc(opt.dataset.m)} ปีงบประมาณ ${opt.dataset.fy}</div>
+    html+=`<section class="form"><div class="hd"><b>${esc(S.title)}</b><br>โรงพยาบาลส่งเสริมสุขภาพตำบล${esc(fac||'…………………')} หมู่ที่……… ตำบล………………… อำเภอแม่แตง จังหวัดเชียงใหม่<br>ประจำเดือน ${esc(opt.dataset.m)} ปีงบประมาณ ${opt.dataset.fy}${rdateTh()?`<br>วันที่เบิก ${esc(rdateTh())}`:''}</div>
     <table class="req"><colgroup><col style="width:7%"><col style="width:${kind==='d'?36:43}%">${kind==='d'?'<col style="width:9%">':''}<col style="width:9%"><col style="width:11%"><col style="width:10%"><col style="width:9%"><col style="width:9%"></colgroup>
     <thead><tr><th>ลำดับ</th><th>รายการ</th>${kind==='d'?'<th>ขนาดบรรจุ</th>':''}<th>หน่วยเบิก</th><th>ราคาต้นทุน</th><th>คงเหลือ</th><th>เบิก</th><th>หมายเหตุ</th></tr></thead><tbody>${body}</tbody></table>
     <div class="sum">รวมรายการที่เบิก <b>${cnt}</b> รายการ &nbsp; มูลค่ารวม <b>${fmt(total,2)}</b> บาท</div>
-    <div class="sign"><div>ลงชื่อ ......................................................... ผู้เบิก<br>( ......................................................... )<br>ตำแหน่ง .........................................................<br>วันที่ ......../......../........</div>
+    <div class="sign"><div>ลงชื่อ ......................................................... ผู้เบิก<br>( ......................................................... )<br>ตำแหน่ง .........................................................<br>วันที่ ${esc(rdateShort())}</div>
     <div>ลงชื่อ ......................................................... ผู้จ่าย<br>(ภญ. กาญจนา ขอดแก้ว)<br>ตำแหน่ง เภสัชกรปฏิบัติการ<br>วันที่ ......../......../........</div>
     <div>ลงชื่อ ......................................................... ผู้อนุมัติจ่าย<br>${esc(S.approver)}<br>ตำแหน่ง ${esc(S.approverPos)}<br>วันที่ ......../......../........</div>
     <div>ลงชื่อ ......................................................... ผู้รับ<br>( ......................................................... )<br>ตำแหน่ง .........................................................<br>วันที่ ......../......../........</div></div></section>`;
