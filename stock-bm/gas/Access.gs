@@ -48,7 +48,14 @@ function approvedSet_() {
   try { cache.put('devok', JSON.stringify(ok), 60); } catch (_) {}
   return ok;
 }
-function isApproved_(tok) { return !!tok && approvedSet_().indexOf(String(tok)) >= 0; }
+/* ล็อกเครื่องปิดอยู่เป็นค่าเริ่มต้น: ทุกเครื่องที่มีลิงก์ใช้ได้ทันที ไม่ต้องขอสิทธิ์
+   อยากกลับมาใช้ระบบอนุมัติเครื่อง ให้ตั้งพร็อพเพอร์ตี้ของสคริปต์ DEVICE_LOCK = ON
+   งานผู้ดูแล (รับเข้า นับจริง ตัดจำหน่าย ใบเบิก) ยังต้องใส่ PIN เหมือนเดิม */
+function lockOn_() {
+  try { return String(PropertiesService.getScriptProperties().getProperty('DEVICE_LOCK') || '').trim().toUpperCase() === 'ON'; }
+  catch (_) { return false; }
+}
+function isApproved_(tok) { return !lockOn_() || (!!tok && approvedSet_().indexOf(String(tok)) >= 0); }
 
 function devRow_(tok) {
   const sh = devSheet_();
@@ -60,6 +67,7 @@ function devRow_(tok) {
 }
 
 function devStatus_(tok) {
+  if (!lockOn_()) return 'approved';
   const r = tok ? devRow_(tok) : null;
   if (!r) return 'none';
   if (r.v[6] === true) return 'approved';
