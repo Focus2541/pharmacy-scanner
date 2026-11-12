@@ -523,6 +523,10 @@ async function startScan(){
   try{
     scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     const v=$('scanVid');v.srcObject=scanStream;await v.play();
+    /* โฟกัสอัตโนมัติต่อเนื่อง (มือถือบางรุ่นไม่เปิดเอง ภาพเลยเบลอ) */
+    try{const tr=scanStream.getVideoTracks()[0],cap=tr.getCapabilities?tr.getCapabilities():{};
+      if(cap.focusMode&&cap.focusMode.indexOf('continuous')>=0)await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+    const t0=Date.now();
     if(!detector){try{if('BarcodeDetector' in window)detector=new BarcodeDetector({formats:['qr_code']})}catch(e){detector=null}}
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     const tick=async()=>{
@@ -530,7 +534,11 @@ async function startScan(){
       let txt='';
       try{
         if(detector){const r=await detector.detect(v);if(r.length)txt=r[0].rawValue}
-        else if(window.jsQR&&v.videoWidth){const w=480,h=Math.round(v.videoHeight*w/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h);if(r)txt=r.data}
+        else if(window.jsQR&&v.videoWidth){
+          /* ตัดเฉพาะกลางภาพ (กรอบเล็ง) ที่ความละเอียดจริง อ่านคมกว่าย่อทั้งภาพ */
+          const vw=v.videoWidth,vh=v.videoHeight,side=Math.round(Math.min(vw,vh)*0.75),sx=(vw-side)/2,sy=(vh-side)/2,out=Math.min(side,720);
+          cv.width=out;cv.height=out;cx.drawImage(v,sx,sy,side,side,0,0,out,out);
+          const r=jsQR(cx.getImageData(0,0,out,out).data,out,out,{inversionAttempts:'dontInvert'});if(r)txt=r.data}
       }catch(e){}
       const m=txt.match(/#?([A-Z]\d{3,5})\s*$/);
       if(m){
@@ -539,6 +547,7 @@ async function startScan(){
         if(find(m[1]))openCard(m[1]);else toast('QR นี้ไม่ใช่ยาในคลังนี้ ('+m[1]+')');
         return;
       }else if(txt){$('scanMsg').textContent='QR นี้ไม่ใช่สติกเกอร์ยา ลองใหม่'}
+      else if(Date.now()-t0>4000)$('scanMsg').textContent='ถ้าภาพเบลอ ถอยมือถือให้ห่าง QR ประมาณ 1 คืบ แล้วถือนิ่งๆ';
       scanTimer=setTimeout(tick,detector?60:150);
     };
     tick();
