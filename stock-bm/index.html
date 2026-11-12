@@ -265,7 +265,7 @@ h1{font:700 1.3rem/1.2 var(--display);margin:0}
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 
 <script src="config.js"></script>
 <script>
@@ -521,9 +521,9 @@ async function startScan(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('เครื่องนี้เปิดกล้องในหน้าเว็บไม่ได้ ให้ใช้แอปกล้องสแกน QR แทน');return}
   $('scan').hidden=false;$('scanMsg').textContent='เล็งกล้องไปที่ QR บนป้ายชั้นยา';
   try{
-    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     const v=$('scanVid');v.srcObject=scanStream;await v.play();
-    try{if('BarcodeDetector' in window)detector=new BarcodeDetector({formats:['qr_code']})}catch(e){detector=null}
+    if(!detector){try{if('BarcodeDetector' in window)detector=new BarcodeDetector({formats:['qr_code']})}catch(e){detector=null}}
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     const tick=async()=>{
       if(!scanStream)return;
@@ -532,14 +532,14 @@ async function startScan(){
         if(detector){const r=await detector.detect(v);if(r.length)txt=r[0].rawValue}
         else if(window.jsQR&&v.videoWidth){const w=480,h=Math.round(v.videoHeight*w/v.videoWidth);cv.width=w;cv.height=h;cx.drawImage(v,0,0,w,h);const r=jsQR(cx.getImageData(0,0,w,h).data,w,h);if(r)txt=r.data}
       }catch(e){}
-      const m=txt.match(/#?([A-Z]\d{3})\s*$/);
+      const m=txt.match(/#?([A-Z]\d{3,5})\s*$/);
       if(m){
         if(navigator.vibrate)navigator.vibrate(80);
         stopScan();
         if(find(m[1]))openCard(m[1]);else toast('QR นี้ไม่ใช่ยาในคลังนี้ ('+m[1]+')');
         return;
       }else if(txt){$('scanMsg').textContent='QR นี้ไม่ใช่สติกเกอร์ยา ลองใหม่'}
-      scanTimer=setTimeout(tick,180);
+      scanTimer=setTimeout(tick,detector?60:150);
     };
     tick();
   }catch(e){stopScan();toast('เปิดกล้องไม่ได้ ให้กดอนุญาตใช้กล้องใน Chrome แล้วลองใหม่')}
@@ -580,13 +580,13 @@ function hideCover(){if(coverGone)return;coverGone=true;const c=$('cover');c.cla
 function coverDone(minMs){setTimeout(hideCover,Math.max(0,minMs-(Date.now()-coverAt)))}
 $('cover').onclick=hideCover;
 if(state&&state.facility)$('coverFac').textContent=state.facility;
-if(/^#[A-Z]\d{3}$/.test(location.hash))hideCover();         // เปิดจาก QR: เข้าการ์ดยาทันที ไม่ต้องรอปก
+if(/^#[A-Z]\d{3,5}$/.test(location.hash))hideCover();         // เปิดจาก QR: เข้าการ์ดยาทันที ไม่ต้องรอปก
 else if(state)coverDone(900);                                  // มียอดเก่าในเครื่องแล้ว: โชว์ปกสั้นๆ
 setTimeout(()=>{if(!coverGone)$('coverMsg').textContent='เน็ตช้า กำลังลองต่อ… แตะเพื่อดูยอดล่าสุดในเครื่อง'},6000);
 setTimeout(hideCover,12000);
 
 /* ---------- start ---------- */
-function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3}$/.test(c))openCard(c)}
+function route(){const c=(location.hash||'').slice(1);if(/^[A-Z]\d{3,5}$/.test(c))openCard(c)}
 window.addEventListener('hashchange',route);
 renderAll();if(state)setSync(false);
 (async()=>{if(state)route();await refresh();coverDone(state?900:600);if(!cur)route()})();
