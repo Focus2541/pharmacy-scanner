@@ -29,6 +29,7 @@ function onOpen() {
     .addItem('บันทึกยอดนับ', 'saveCountSheet')
     .addSeparator()
     .addItem('ดึงยาใหม่จากคลังยาใหญ่', 'syncFromHub')
+    .addItem('จัดหมวดยาใหม่ (8 หมวดแบบบ้านเป้า)', 'applyBanpaoShelves')
     .addItem('เพิ่มยาใหม่ + สร้าง QR', 'addItemDialog')
     .addItem('พิมพ์สติกเกอร์ QR', 'labelsDialog')
     .addToUi();
